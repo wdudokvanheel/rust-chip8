@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<head>
+	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<style>
+		html, body {
+			margin: 0px;
+			padding: 0px;
+			width: 100%;
+			height: 100%;
+			background: #1d1d1d;
+			padding: env(safe-area-inset);
+		}
+
+		canvas {
+			position: fixed;
+			display: block;
+			padding: 0px;
+			margin: 0px;
+			width: 100%;
+			height: 100%;
+		}
+	</style>
+
+	<script type="module">
+		import {default as init} from './chip8.js';
+
+		async function start() {
+			await init('./chip8_bg.wasm');
+		}
+
+		start();
+
+		const canvas = document.getElementById("canvas");
+
+		canvas.addEventListener('contextmenu', function (e) {
+			e.preventDefault();
+		});
+	</script>
+</head>
+<body>
+	<canvas id="canvas"></canvas>
+</body>
+<html>

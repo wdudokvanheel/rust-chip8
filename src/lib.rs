@@ -1,9 +1,3 @@
-#[macro_use]
-extern crate log;
-
-use std::process;
-use std::usize;
-
 use wasm_bindgen::prelude::*;
 
 use crate::app::start;
@@ -13,6 +7,7 @@ mod app;
 mod vertex;
 mod chip8;
 
-fn main() {
+#[wasm_bindgen(start)]
+pub fn wasm_start() {
     start();
 }
