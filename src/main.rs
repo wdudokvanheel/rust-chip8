@@ -1,4 +1,6 @@
 use std::usize;
+use std::process;
+
 
 fn main() {
     println!("Chip 8 Emu");
@@ -7,15 +9,18 @@ fn main() {
 
     let mut chip = Chip8::new();
     chip.set_rom(rom);
-    for _ in 0 .. 32 {
+    for x in 0 .. 1000000 {
+        print!("{}", x);
         chip.cycle();
         //chip.debug_print();
+
     }
     print_display(chip.display);
 }
 
 fn load_rom() -> Vec<u8>{
-    let rom = include_bytes!("roms/ibm.ch8");
+    // let rom = include_bytes!("roms/ibm.ch8");
+    let rom = include_bytes!("roms/corax.plus.ch8");
     rom.to_vec()
 }
 
@@ -25,7 +30,9 @@ struct Chip8{
     registers: [u8; 16], 
     index_register: u16,
     program_counter: u16,
+    stack: Vec<u16>,
     display: [[bool; 64]; 32],
+    legacy_instructions: bool,
 }
 
 impl Chip8{
@@ -35,7 +42,9 @@ impl Chip8{
             registers: [0; 16],
             index_register: 0,
             program_counter: 0x200,
+            stack: vec!(),
             display: [[false; 64]; 32],
+            legacy_instructions: false,
         }
     }
 
@@ -47,13 +56,161 @@ impl Chip8{
         self.program_counter+=2;
 
         match opcode  {
-            Opcode { opcode: 0xD, x, y, n, ..} => self.draw_sprite(x, y, n),
+            Opcode { instruction: 0x145C, .. } => print_display(self.display),
             Opcode { opcode: 0x1, nnn, ..} => self.set_program_counter(nnn),
-            Opcode { opcode: 0x7, x, nn, ..} => self.add_v_register(x, nn),
-            Opcode { opcode: 0x6, x, nn, ..} => self.set_v_register(x, nn),
+            Opcode { opcode: 0x2, nnn, .. } => self.jump_sub(nnn),
+            Opcode { opcode: 0x3, x, nn, ..} => self.value_conditional_skip(x, nn, true),
+            Opcode { opcode: 0x4, x, nn, ..} => self.value_conditional_skip(x, nn, false),
+            Opcode { opcode: 0x5, x, y, ..} => self.register_conditional_skip(x, y, true),
+            Opcode { opcode: 0x6, x, nn, .. } => self.set_v_register(x, nn),
+            Opcode { opcode: 0x7, x, nn, .. } => self.add_v_register(x, nn),
+            Opcode { opcode: 0x8, n: 0x0, x, y, .. } => self.register_copy(x, y),
+            Opcode { opcode: 0x8, n: 0x1, x, y, .. } => self.register_or(x, y),
+            Opcode { opcode: 0x8, n: 0x2, x, y, .. } => self.register_and(x, y),
+            Opcode { opcode: 0x8, n: 0x3, x, y, .. } => self.register_xor(x, y),
+            Opcode { opcode: 0x8, n: 0x4, x, y, .. } => self.register_add(x, y),
+            Opcode { opcode: 0x8, n: 0x5, x, y, .. } => self.register_sub(x, y, false),
+            Opcode { opcode: 0x8, n: 0x6, x, y, .. } => self.register_shift(x, y, false),
+            Opcode { opcode: 0x8, n: 0x7, x, y, .. } => self.register_sub(x, y, true),
+            Opcode { opcode: 0x8, n: 0xE, x, y, .. } => self.register_shift(x, y, true),
+            Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, false),
             Opcode { opcode: 0xA, nnn, .. } => self.set_index_register(nnn),
+            Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
+            Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
+            Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x), 
+            Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
+            Opcode { opcode: 0xf, nn: 0x1E, x, .. } => self.add_index_register(x),
             Opcode { instruction: 0x00E0, ..} => self.clear_screen(),
-            Opcode { opcode, .. } => println!("Opcode not supported: {:01X}", opcode),
+            Opcode { instruction: 0x00EE, .. } => self.return_sub(),
+            Opcode { opcode, .. } => { 
+                println!("Opcode not supported: {:01X}", opcode);
+                print_display(self.display);
+                process::exit(0x0100);
+            },
+        }
+    }
+
+    fn add_index_register(&mut self, target_register: u8){
+        // TODO: Add amiga style VF register handling
+        self.index_register = self.index_register.wrapping_add(self.registers[target_register as usize].into());
+    }
+
+    fn register_to_memory(&mut self, target_register: u8){
+        // TODO: Add support for legacy
+        for i in 0..=target_register {
+            self.memory[(self.index_register + i as u16) as usize] = self.registers[i as usize]; 
+        }
+    }
+
+    fn memory_to_register(&mut self, target_register: u8){
+        // TODO: Add support for legacy
+        for i in 0..=target_register {
+            self.registers[i as usize] = self.memory[(self.index_register + i as u16) as usize];
+        }
+    }
+
+    fn convert_to_bcd(&mut self, target_register: u8) {
+        let value = self.registers[target_register as usize];
+
+        let hundreds = value / 100;
+        let tens = (value / 10) % 10;
+        let ones = value % 10;
+
+        self.memory[self.index_register as usize] = hundreds;
+        self.memory[self.index_register as usize + 1] = tens;
+        self.memory[self.index_register as usize + 2] = ones;
+    }
+
+    fn register_copy(&mut self, target_register: u8, source_register: u8){
+        self.registers[target_register as usize] = self.registers[source_register as usize];
+    }
+
+    fn register_or(&mut self, target_register: u8, source_register: u8){
+        self.registers[target_register as usize] = self.registers[target_register as usize] | self.registers[source_register as usize];
+    }
+
+    fn register_xor(&mut self, target_register: u8, source_register: u8){
+        self.registers[target_register as usize] = self.registers[target_register as usize] ^ self.registers[source_register as usize];
+    }
+
+    fn register_and(&mut self, target_register: u8, source_register: u8){
+        self.registers[target_register as usize] = self.registers[target_register as usize] & self.registers[source_register as usize];
+    }
+
+    fn register_shift(&mut self, target_register: u8, source_register: u8, inverse: bool){
+        let bit_out: u8;
+
+        if self.legacy_instructions {
+            self.registers[target_register as usize] =self.registers[source_register as usize]; 
+        }
+
+        if inverse{
+            bit_out = (self.registers[target_register as usize] >> 7) & 1;
+            self.registers[target_register as usize] <<= 1;
+        }
+        else{
+            bit_out = self.registers[target_register as usize] & 1;
+            self.registers[target_register as usize] >>= 1;
+        }
+        self.registers[0xF] = bit_out;
+    }
+
+    fn register_add(&mut self, target_register: u8, source_register: u8){
+        let x = self.registers[target_register as usize];
+        let y = self.registers[source_register as usize];
+
+        if y > (255 - x){
+            self.registers[0xF] = 1;
+        }
+        else{
+            self.registers[0xF] = 0;
+        }
+
+       self.registers[target_register as usize] = x.wrapping_add(y);
+    }
+
+    fn register_sub(&mut self, target_register: u8, source_register: u8, swap: bool){
+        let mut x = self.registers[target_register as usize];
+        let mut y = self.registers[source_register as usize];
+
+        if swap {
+            std::mem::swap(&mut x, &mut y);
+        }
+        if  x > y {
+            self.registers[0xF] = 1;
+        }
+        else{
+            self.registers[0xF] = 0;
+        }
+
+        self.registers[target_register as usize] = x.wrapping_sub(y);
+    }
+
+
+    fn return_sub(&mut self){
+        if let Some(position) = self.stack.pop() {
+            self.set_program_counter(position);
+        }
+    }
+
+    fn jump_sub(&mut self, position: u16){
+        self.stack.push(self.program_counter);
+        self.set_program_counter(position);
+    }
+
+    fn register_conditional_skip(&mut self, register_a: u8, register_b: u8, equals: bool){
+        let vx = self.registers[register_a as usize];
+        let vy = self.registers[register_b as usize];
+
+        if vx == vy && equals{
+            self.program_counter += 2;
+        }
+    }
+
+    fn value_conditional_skip(&mut self, register: u8, value: u8, equals: bool){
+        let vx = self.registers[register as usize];
+        if vx == value && equals {
+            self.program_counter += 2;
         }
     }
 
@@ -110,7 +267,7 @@ impl Chip8{
                 return;
             }
 
-        self.registers[register as usize] += value;
+        self.registers[register as usize] = self.registers[register as usize].wrapping_add(value);
     }
 
     fn set_index_register(&mut self, value: u16){
