@@ -19,6 +19,7 @@ wgpu = { version = "0.17.0", features = ["webgl"] }
 winit = "0.29.1-beta"
 pollster = "0.3.0"
 bytemuck = { version = "1.12.3", features = ["derive"] }
+instant = { version = "0.1.12", features = ["web-sys", "wasm-bindgen"] }
 
 console_error_panic_hook = { version = "0.1.7", optional = true }
 

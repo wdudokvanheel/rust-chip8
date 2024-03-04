@@ -1,27 +1,5 @@
 use std::process;
 
-pub fn mainChips8() {
-    println!("Chip 8 Emu");
-
-    let rom = load_rom();
-
-    let mut chip = Chip8::new();
-    chip.set_rom(rom);
-    for x in 0..1000000 {
-        print!("{}", x);
-        chip.cycle();
-        //chip.debug_print();
-    }
-    print_display(chip.display);
-}
-
-pub fn load_rom() -> Vec<u8> {
-    // let rom = include_bytes!("roms/ibm.ch8");
-    let rom = include_bytes!("roms/corax.plus.ch8");
-    rom.to_vec()
-}
-
-
 pub struct Chip8 {
     memory: [u8; 4096],
     registers: [u8; 16],
@@ -30,6 +8,16 @@ pub struct Chip8 {
     stack: Vec<u16>,
     pub display: [[bool; 64]; 32],
     legacy_instructions: bool,
+}
+
+struct Opcode {
+    instruction: u16,
+    opcode: u8,
+    x: u8,
+    y: u8,
+    n: u8,
+    nn: u8,
+    nnn: u16,
 }
 
 impl Chip8 {
@@ -47,16 +35,11 @@ impl Chip8 {
 
     pub fn cycle(&mut self) {
         let instruction = self.fetch_instruction();
-        println!("\nNext instruction: {:04X}", instruction);
         let opcode = Opcode::from_instruction(instruction);
 
         self.program_counter += 2;
 
         match opcode {
-            // Opcode { instruction: 0x145C, nnn, .. } => {
-            //     print_display(self.display);
-            //     self.set_program_counter(nnn);
-            // }
             Opcode { opcode: 0x1, nnn, .. } => self.set_program_counter(nnn),
             Opcode { opcode: 0x2, nnn, .. } => self.jump_sub(nnn),
             Opcode { opcode: 0x3, x, nn, .. } => self.value_conditional_skip(x, nn, true),
@@ -82,9 +65,8 @@ impl Chip8 {
             Opcode { opcode: 0xf, nn: 0x1E, x, .. } => self.add_index_register(x),
             Opcode { instruction: 0x00E0, .. } => self.clear_screen(),
             Opcode { instruction: 0x00EE, .. } => self.return_sub(),
-            Opcode { opcode, .. } => {
-                println!("Opcode not supported: {:01X}", opcode);
-                print_display(self.display);
+            Opcode { instruction, .. } => {
+                println!("Instruction not supported: {:04X}", instruction);
                 process::exit(0x0100);
             }
         }
@@ -281,7 +263,7 @@ impl Chip8 {
         (high_byte << 8) | low_byte
     }
 
-    pub(crate) fn set_rom(&mut self, rom: Vec<u8>) {
+    pub fn set_rom(&mut self, rom: Vec<u8>) {
         let end = std::cmp::min(rom.len(), self.memory.len() - 512);
 
         for (index, &byte) in rom.iter().enumerate().take(end) {
@@ -300,16 +282,6 @@ impl Chip8 {
     }
 }
 
-struct Opcode {
-    instruction: u16,
-    opcode: u8,
-    x: u8,
-    y: u8,
-    n: u8,
-    nn: u8,
-    nnn: u16,
-}
-
 impl Opcode {
     fn from_instruction(instruction: u16) -> Self {
         let opcode = ((instruction >> 12) & 0xF) as u8;
@@ -318,28 +290,13 @@ impl Opcode {
         let n = (instruction & 0xF) as u8;
         let nn = (instruction & 0xFF) as u8;
         let nnn = instruction & 0xFFF;
-        /*
-                println!("Opcode: {:01X}", opcode);
-                println!("x: {:01X}", x);
-                println!("y: {:01X}", y);
-                println!("n: {:01X}", n);
-                println!("nn: {:02X}", nn);
-                println!("nnn: {:04X}", nnn);
-                */
 
         Opcode { instruction, opcode, x, y, n, nn, nnn }
     }
 }
 
-fn print_display(display: [[bool; 64]; 32]) {
-    for row in display.iter() {
-        for &pixel in row.iter() {
-            if pixel {
-                print!("█");
-            } else {
-                print!(" ");
-            }
-        }
-        println!();
-    }
+pub fn load_rom() -> Vec<u8> {
+    let rom = include_bytes!("roms/ibm.ch8");
+    // let rom = include_bytes!("roms/corax.plus.ch8");
+    rom.to_vec()
 }

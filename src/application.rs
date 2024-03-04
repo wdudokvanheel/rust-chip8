@@ -1,0 +1,187 @@
+use std::borrow::Cow;
+use wgpu::{Adapter, BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Surface, SurfaceCapabilities, Texture, TextureFormat};
+use wgpu::util::DeviceExt;
+
+use crate::chip8::{Chip8, load_rom};
+use crate::wgpu_runtime::{WgpuRuntime, RuntimeContext, Vertex};
+use crate::wgpu_runtime::wgpu_math::Vec2i;
+
+struct RuntimeData {
+    chip8: Chip8,
+    render_pipeline: RenderPipeline,
+    uniform_buffer: Buffer,
+    bind_group: BindGroup,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+pub(crate) struct ShaderUniform {
+    value: [u32; 2048],
+}
+
+pub fn start_application() {
+    println!("Chip 8 Emulator by Bitechular Innovations");
+
+    let mut runtime = WgpuRuntime::new(
+        "Chip 8 Emulator - Bitechular Innovations",
+        Vec2i::new(1280, 640),
+        |context| {
+            let rom = load_rom();
+
+            let mut device = Chip8::new();
+            device.set_rom(rom);
+
+            let shader = create_shader(&context.gfx.device);
+            let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
+                (&context.gfx.device, &shader, context.gfx.texture_format);
+
+            RuntimeData {
+                chip8: device,
+                render_pipeline,
+                uniform_buffer,
+                bind_group,
+            }
+        },
+    );
+
+    runtime.on_render(render);
+    runtime.on_update(update);
+
+    runtime.start();
+}
+
+fn update(app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
+    data.chip8.cycle();
+}
+
+fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture) {
+    let mut encoder = context.gfx.device.create_command_encoder
+    (&wgpu::CommandEncoderDescriptor { label: None });
+    {
+        let view = target.create_view(&wgpu::TextureViewDescriptor::default());
+
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(wgpu::Color::BLACK),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+        //
+        context.gfx.queue.write_buffer(&data.uniform_buffer, 0, bytemuck::cast_slice
+            (&[ShaderUniform::from_display(data.chip8.display)]));
+        rpass.set_bind_group(0, &data.bind_group, &[]);
+        rpass.set_pipeline(&data.render_pipeline);
+        rpass.set_vertex_buffer(0, context.gfx.vertex_buffer.slice(..));
+        rpass.set_index_buffer(context.gfx.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+        rpass.draw_indexed(0..6, 0, 0..1);
+    }
+    context.gfx.queue.submit(Some(encoder.finish()));
+}
+
+fn create_pipeline(device: &Device, shader: &ShaderModule, format: TextureFormat) ->
+(RenderPipeline, Buffer, BindGroup) {
+    let uniform = ShaderUniform::new();
+
+    let uniform_buffer = device.create_buffer_init(
+        &wgpu::util::BufferInitDescriptor {
+            label: Some("Display Buffer"),
+            contents: bytemuck::cast_slice(&[uniform]),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        }
+    );
+
+    let display_bind_group_layout = device.create_bind_group_layout
+    (&wgpu::BindGroupLayoutDescriptor {
+        entries: &[
+            wgpu::BindGroupLayoutEntry {
+                binding: 0,
+                visibility: wgpu::ShaderStages::FRAGMENT,
+                ty: wgpu::BindingType::Buffer {
+                    ty: wgpu::BufferBindingType::Uniform,
+                    has_dynamic_offset: false,
+                    min_binding_size: None,
+                },
+                count: None,
+            }
+        ],
+        label: Some("display_bind_group_layout"),
+    });
+
+    let display_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+        layout: &display_bind_group_layout,
+        entries: &[
+            wgpu::BindGroupEntry {
+                binding: 0,
+                resource: uniform_buffer.as_entire_binding(),
+            }
+        ],
+        label: Some("display_bind_group"),
+    });
+
+
+    let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+        label: None,
+        bind_group_layouts: &[&display_bind_group_layout],
+        push_constant_ranges: &[],
+    });
+
+    let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+        label: None,
+        layout: Some(&pipeline_layout),
+        vertex: wgpu::VertexState {
+            module: &shader,
+            entry_point: "vs_main",
+            buffers: &[
+                Vertex::get_layout(),
+            ],
+        },
+        fragment: Some(wgpu::FragmentState {
+            module: &shader,
+            entry_point: "fs_main",
+            targets: &[Some(format.into())],
+        }),
+        primitive: wgpu::PrimitiveState::default(),
+        depth_stencil: None,
+        multisample: wgpu::MultisampleState::default(),
+        multiview: None,
+    });
+
+    (render_pipeline, uniform_buffer, display_bind_group)
+}
+
+fn create_shader(device: &Device) -> ShaderModule {
+    device.create_shader_module(wgpu::ShaderModuleDescriptor {
+        label: None,
+        source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("shader.wgsl"))),
+    })
+}
+
+impl ShaderUniform {
+    pub(crate) fn new() -> Self {
+        ShaderUniform {
+            value: [0; 2048]
+        }
+    }
+
+    pub(crate) fn from_display(display: [[bool; 64]; 32]) -> Self {
+        let mut n = ShaderUniform {
+            value: [0; 2048],
+        };
+
+        for (row_index, row) in display.iter().enumerate() {
+            for (col_index, &col_value) in row.iter().enumerate() {
+                if (col_value) {
+                    n.value[row_index * 64 + col_index] = 1;
+                }
+            }
+        }
+
+        return n;
+    }
+}

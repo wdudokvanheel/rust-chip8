@@ -1,18 +1,16 @@
 #[macro_use]
 extern crate log;
 
-use std::process;
-use std::usize;
-
 use wasm_bindgen::prelude::*;
 
-use crate::app::start;
+use crate::application::start_application;
 
 mod utils;
-mod app;
 mod vertex;
 mod chip8;
+mod wgpu_runtime;
+mod application;
 
 fn main() {
-    start();
+    start_application();
 }
