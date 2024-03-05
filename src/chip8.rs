@@ -1,4 +1,4 @@
-use std::process;
+use std::process::{self, exit};
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -8,6 +8,7 @@ pub struct Chip8 {
     stack: Vec<u16>,
     pub display: [[bool; 64]; 32],
     legacy_instructions: bool,
+    total_cycles: u32,
 }
 
 struct Opcode {
@@ -30,21 +31,31 @@ impl Chip8 {
             stack: vec!(),
             display: [[false; 64]; 32],
             legacy_instructions: false,
+            total_cycles: 0,
         }
     }
 
     pub fn cycle(&mut self) {
+        self.total_cycles += 1;
+
+        if(self.total_cycles > 23){
+            //exit(1);
+        }
+
         let instruction = self.fetch_instruction();
         let opcode = Opcode::from_instruction(instruction);
 
         self.program_counter += 2;
-
+        if(instruction != 0x1542) {
+            println!("Instruction {}: {:04x}", self.total_cycles, instruction);
+            self.debug_print();
+        }
         match opcode {
             Opcode { opcode: 0x1, nnn, .. } => self.set_program_counter(nnn),
             Opcode { opcode: 0x2, nnn, .. } => self.jump_sub(nnn),
-            Opcode { opcode: 0x3, x, nn, .. } => self.value_conditional_skip(x, nn, true),
-            Opcode { opcode: 0x4, x, nn, .. } => self.value_conditional_skip(x, nn, false),
-            Opcode { opcode: 0x5, x, y, .. } => self.register_conditional_skip(x, y, true),
+            Opcode { opcode: 0x3, x, nn, .. } => self.value_conditional_skip(x, nn, false),
+            Opcode { opcode: 0x4, x, nn, .. } => self.value_conditional_skip(x, nn, true),
+            Opcode { opcode: 0x5, x, y, .. } => self.register_conditional_skip(x, y, false),
             Opcode { opcode: 0x6, x, nn, .. } => self.set_v_register(x, nn),
             Opcode { opcode: 0x7, x, nn, .. } => self.add_v_register(x, nn),
             Opcode { opcode: 0x8, n: 0x0, x, y, .. } => self.register_copy(x, y),
@@ -56,7 +67,7 @@ impl Chip8 {
             Opcode { opcode: 0x8, n: 0x6, x, y, .. } => self.register_shift(x, y, false),
             Opcode { opcode: 0x8, n: 0x7, x, y, .. } => self.register_sub(x, y, true),
             Opcode { opcode: 0x8, n: 0xE, x, y, .. } => self.register_shift(x, y, true),
-            Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, false),
+            Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, true),
             Opcode { opcode: 0xA, nnn, .. } => self.set_index_register(nnn),
             Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
@@ -79,15 +90,19 @@ impl Chip8 {
 
     fn register_to_memory(&mut self, target_register: u8) {
         // TODO: Add support for legacy
+        println!("Writing memory to v0 to v{:01x}", target_register);
         for i in 0..=target_register {
             self.memory[(self.index_register + i as u16) as usize] = self.registers[i as usize];
         }
     }
 
     fn memory_to_register(&mut self, target_register: u8) {
-        // TODO: Add support for legacy
         for i in 0..=target_register {
             self.registers[i as usize] = self.memory[(self.index_register + i as u16) as usize];
+        }
+
+        if self.legacy_instructions {
+            self.index_register += target_register as u16;
         }
     }
 
@@ -177,18 +192,20 @@ impl Chip8 {
         self.set_program_counter(position);
     }
 
-    fn register_conditional_skip(&mut self, register_a: u8, register_b: u8, equals: bool) {
+    fn register_conditional_skip(&mut self, register_a: u8, register_b: u8, inverse: bool) {
         let vx = self.registers[register_a as usize];
         let vy = self.registers[register_b as usize];
 
-        if vx == vy && equals {
+        if (vx == vy) ^ inverse {
             self.program_counter += 2;
         }
     }
 
-    fn value_conditional_skip(&mut self, register: u8, value: u8, equals: bool) {
+    fn value_conditional_skip(&mut self, register: u8, value: u8, inverse: bool) {
         let vx = self.registers[register as usize];
-        if vx == value && equals {
+        println!("Checking if equal v{:02x} = {:02x} :: {:02x}", register, value, vx);
+
+        if (vx == value) ^ inverse {
             self.program_counter += 2;
         }
     }
@@ -221,7 +238,7 @@ impl Chip8 {
     }
 
     fn set_program_counter(&mut self, value: u16) {
-        println!("Setting program counter to: {:04X}", value);
+       // println!("Setting program counter to: {:04X}", value);
         self.program_counter = value;
     }
 
@@ -296,7 +313,8 @@ impl Opcode {
 }
 
 pub fn load_rom() -> Vec<u8> {
-    let rom = include_bytes!("roms/ibm.ch8");
+    let rom = include_bytes!("roms/flags.ch8");
+    // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
     rom.to_vec()
 }
