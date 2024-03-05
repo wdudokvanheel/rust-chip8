@@ -2,7 +2,6 @@ use wasm_bindgen::prelude::*;
 use crate::application::start_application;
 
 mod utils;
-mod vertex;
 mod chip8;
 mod wgpu_runtime;
 mod application;

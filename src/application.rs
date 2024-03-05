@@ -1,9 +1,10 @@
 use std::borrow::Cow;
-use wgpu::{Adapter, BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Surface, SurfaceCapabilities, Texture, TextureFormat};
+
+use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
 
 use crate::chip8::{Chip8, load_rom};
-use crate::wgpu_runtime::{WgpuRuntime, RuntimeContext, Vertex};
+use crate::wgpu_runtime::{RuntimeContext, Vertex, WgpuRuntime};
 use crate::wgpu_runtime::wgpu_math::Vec2i;
 
 struct RuntimeData {
@@ -11,6 +12,8 @@ struct RuntimeData {
     render_pipeline: RenderPipeline,
     uniform_buffer: Buffer,
     bind_group: BindGroup,
+    clockspeed: f32,
+    elapsed_time: f32,
 }
 
 #[repr(C)]
@@ -40,6 +43,8 @@ pub fn start_application() {
                 render_pipeline,
                 uniform_buffer,
                 bind_group,
+                elapsed_time: 0.0,
+                clockspeed: 1000.0 / 700.0,
             }
         },
     );
@@ -50,8 +55,13 @@ pub fn start_application() {
     runtime.start();
 }
 
-fn update(app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
-    data.chip8.cycle();
+fn update(_app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
+    data.elapsed_time += elapsed;
+
+    while data.elapsed_time >= data.clockspeed {
+        data.elapsed_time -= data.clockspeed;
+        data.chip8.cycle();
+    }
 }
 
 fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture) {
