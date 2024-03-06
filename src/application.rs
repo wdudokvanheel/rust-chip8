@@ -33,7 +33,6 @@ pub fn start_application() {
 
             let mut device = Chip8::new();
             device.set_rom(rom);
-
             let shader = create_shader(&context.gfx.device);
             let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
                 (&context.gfx.device, &shader, context.gfx.texture_format);
@@ -58,6 +57,7 @@ pub fn start_application() {
 fn update(_app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
     data.elapsed_time += elapsed;
 
+    data.chip8.update();
     while data.elapsed_time >= data.clockspeed {
         data.elapsed_time -= data.clockspeed;
         data.chip8.cycle();

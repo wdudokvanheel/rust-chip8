@@ -7,6 +7,8 @@ pub struct Chip8 {
     program_counter: u16,
     stack: Vec<u16>,
     pub display: [[bool; 64]; 32],
+    delay_timer: u8,
+    sound_timer: u8,
     legacy_instructions: bool,
     total_cycles: u32,
 }
@@ -32,6 +34,8 @@ impl Chip8 {
             display: [[false; 64]; 32],
             legacy_instructions: false,
             total_cycles: 0,
+            delay_timer: 0,
+            sound_timer: 0,
         }
     }
 
@@ -48,7 +52,6 @@ impl Chip8 {
         self.program_counter += 2;
         if(instruction != 0x1542) {
             println!("Instruction {}: {:04x}", self.total_cycles, instruction);
-            self.debug_print();
         }
         match opcode {
             Opcode { opcode: 0x1, nnn, .. } => self.set_program_counter(nnn),
@@ -73,13 +76,24 @@ impl Chip8 {
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
             Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x),
             Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
-            Opcode { opcode: 0xf, nn: 0x1E, x, .. } => self.add_index_register(x),
+            Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
+            //Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
             Opcode { instruction: 0x00E0, .. } => self.clear_screen(),
             Opcode { instruction: 0x00EE, .. } => self.return_sub(),
             Opcode { instruction, .. } => {
                 println!("Instruction not supported: {:04X}", instruction);
                 process::exit(0x0100);
             }
+        }
+    }
+
+    pub fn update(&mut self){
+        if self.delay_timer > 0 {
+            self.delay_timer -= 1;
+        }
+
+        if self.sound_timer > 0 {
+            self.sound_timer -= 1;
         }
     }
 
@@ -155,13 +169,13 @@ impl Chip8 {
         let x = self.registers[target_register as usize];
         let y = self.registers[source_register as usize];
 
+        self.registers[target_register as usize] = x.wrapping_add(y);
+
         if y > (255 - x) {
             self.registers[0xF] = 1;
         } else {
             self.registers[0xF] = 0;
         }
-
-        self.registers[target_register as usize] = x.wrapping_add(y);
     }
 
     fn register_sub(&mut self, target_register: u8, source_register: u8, swap: bool) {
@@ -171,13 +185,14 @@ impl Chip8 {
         if swap {
             std::mem::swap(&mut x, &mut y);
         }
-        if x > y {
+        
+        self.registers[target_register as usize] = x.wrapping_sub(y);
+
+        if x >= y {
             self.registers[0xF] = 1;
         } else {
             self.registers[0xF] = 0;
         }
-
-        self.registers[target_register as usize] = x.wrapping_sub(y);
     }
 
 
@@ -313,8 +328,9 @@ impl Opcode {
 }
 
 pub fn load_rom() -> Vec<u8> {
-    let rom = include_bytes!("roms/flags.ch8");
     // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
+     let rom = include_bytes!("roms/flags.ch8");
+    // let rom = include_bytes!("roms/quirks.ch8");
     rom.to_vec()
 }
