@@ -1,4 +1,4 @@
-use std::process::{self, exit};
+use std::{process::{self, exit}, usize};
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -77,7 +77,8 @@ impl Chip8 {
             Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x),
             Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
             Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
-            //Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
+            Opcode { opcode: 0xF, nn: 0x07, x, .. } => self.get_delay_timer(x),
+            Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
             Opcode { instruction: 0x00E0, .. } => self.clear_screen(),
             Opcode { instruction: 0x00EE, .. } => self.return_sub(),
             Opcode { instruction, .. } => {
@@ -95,6 +96,14 @@ impl Chip8 {
         if self.sound_timer > 0 {
             self.sound_timer -= 1;
         }
+    }
+
+    fn set_delay_timer(&mut self, source_register: u8) {
+        self.delay_timer = self.registers[source_register as usize];
+    }
+
+    fn get_delay_timer(&mut self, target_register: u8) {
+        self.registers[target_register as usize] = self.delay_timer;
     }
 
     fn add_index_register(&mut self, target_register: u8) {
@@ -330,7 +339,7 @@ impl Opcode {
 pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
-     let rom = include_bytes!("roms/flags.ch8");
-    // let rom = include_bytes!("roms/quirks.ch8");
+     // let rom = include_bytes!("roms/flags.ch8");
+    let rom = include_bytes!("roms/quirks.ch8");
     rom.to_vec()
 }
