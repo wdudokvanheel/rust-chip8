@@ -1,7 +1,9 @@
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
+use winit::keyboard::KeyCode;
 
 use crate::chip8::{Chip8, load_rom};
 use crate::wgpu_runtime::{RuntimeContext, Vertex, WgpuRuntime};
@@ -14,6 +16,7 @@ struct RuntimeData {
     bind_group: BindGroup,
     clockspeed: f32,
     elapsed_time: f32,
+    key_map: HashMap<KeyCode, u8>,
 }
 
 #[repr(C)]
@@ -37,6 +40,28 @@ pub fn start_application() {
             let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
                 (&context.gfx.device, &shader, context.gfx.texture_format);
 
+            let mut key_map: HashMap<KeyCode, u8> = HashMap::new();
+
+            key_map.insert(KeyCode::Digit1, 0x1);
+            key_map.insert(KeyCode::Digit2, 0x2);
+            key_map.insert(KeyCode::Digit3, 0x3);
+            key_map.insert(KeyCode::Digit4, 0xC);
+
+            key_map.insert(KeyCode::KeyQ, 0x4);
+            key_map.insert(KeyCode::KeyW, 0x5);
+            key_map.insert(KeyCode::KeyE, 0x6);
+            key_map.insert(KeyCode::KeyR, 0xD);
+
+            key_map.insert(KeyCode::KeyA, 0x7);
+            key_map.insert(KeyCode::KeyS, 0x8);
+            key_map.insert(KeyCode::KeyD, 0x9);
+            key_map.insert(KeyCode::KeyF, 0xE);
+
+            key_map.insert(KeyCode::KeyZ, 0xA);
+            key_map.insert(KeyCode::KeyX, 0x0);
+            key_map.insert(KeyCode::KeyC, 0xB);
+            key_map.insert(KeyCode::KeyV, 0xF);
+
             RuntimeData {
                 chip8: device,
                 render_pipeline,
@@ -44,13 +69,14 @@ pub fn start_application() {
                 bind_group,
                 elapsed_time: 0.0,
                 clockspeed: 1000.0 / 700.0,
+                key_map,
             }
         },
     );
 
     runtime.on_render(render);
     runtime.on_update(update);
-
+    runtime.on_key_event(input);
     runtime.start();
 }
 
@@ -61,6 +87,14 @@ fn update(_app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
     while data.elapsed_time >= data.clockspeed {
         data.elapsed_time -= data.clockspeed;
         data.chip8.cycle();
+    }
+}
+
+
+fn input(_app: &mut RuntimeContext, data: &mut RuntimeData, keycode: KeyCode, pressed: bool) {
+    if let Some(key) = data.key_map.get(&keycode) {
+        data.chip8.set_input(*key, pressed);
+        println!("Set {:02} to {}", *key, pressed);
     }
 }
 

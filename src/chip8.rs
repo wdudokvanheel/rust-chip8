@@ -1,4 +1,4 @@
-use std::{process::{self, exit}, usize};
+use std::{process::{self}, usize};
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -7,6 +7,7 @@ pub struct Chip8 {
     program_counter: u16,
     stack: Vec<u16>,
     pub display: [[bool; 64]; 32],
+    input: [bool; 16],
     delay_timer: u8,
     sound_timer: u8,
     legacy_instructions: bool,
@@ -32,6 +33,7 @@ impl Chip8 {
             program_counter: 0x200,
             stack: vec!(),
             display: [[false; 64]; 32],
+            input: [false; 16],
             legacy_instructions: false,
             total_cycles: 0,
             delay_timer: 0,
@@ -42,7 +44,7 @@ impl Chip8 {
     pub fn cycle(&mut self) {
         self.total_cycles += 1;
 
-        if(self.total_cycles > 23){
+        if (self.total_cycles > 23) {
             //exit(1);
         }
 
@@ -50,8 +52,8 @@ impl Chip8 {
         let opcode = Opcode::from_instruction(instruction);
 
         self.program_counter += 2;
-        if(instruction != 0x1542) {
-            println!("Instruction {}: {:04x}", self.total_cycles, instruction);
+        if (instruction != 0x1542) {
+            //println!("Instruction {}: {:04x}", self.total_cycles, instruction);
         }
         match opcode {
             Opcode { opcode: 0x1, nnn, .. } => self.set_program_counter(nnn),
@@ -73,6 +75,8 @@ impl Chip8 {
             Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, true),
             Opcode { opcode: 0xA, nnn, .. } => self.set_index_register(nnn),
             Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
+            Opcode { opcode: 0xE, nn: 0x9E, x, .. } => self.input_conditional_skip(x, false),
+            Opcode { opcode: 0xE, nn: 0xA1, x, .. } => self.input_conditional_skip(x, true),
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
             Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x),
             Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
@@ -88,7 +92,7 @@ impl Chip8 {
         }
     }
 
-    pub fn update(&mut self){
+    pub fn update(&mut self) {
         if self.delay_timer > 0 {
             self.delay_timer -= 1;
         }
@@ -111,9 +115,16 @@ impl Chip8 {
         self.index_register = self.index_register.wrapping_add(self.registers[target_register as usize].into());
     }
 
+    fn input_conditional_skip(&mut self, source_register: u8, inverse: bool) {
+        let input = self.registers[source_register as usize];
+        if self.input[input as usize] ^ inverse {
+            self.program_counter += 2;
+        }
+    }
+
     fn register_to_memory(&mut self, target_register: u8) {
         // TODO: Add support for legacy
-        println!("Writing memory to v0 to v{:01x}", target_register);
+        //  println!("Writing memory to v0 to v{:01x}", target_register);
         for i in 0..=target_register {
             self.memory[(self.index_register + i as u16) as usize] = self.registers[i as usize];
         }
@@ -127,6 +138,10 @@ impl Chip8 {
         if self.legacy_instructions {
             self.index_register += target_register as u16;
         }
+    }
+
+    pub fn set_input(&mut self, input: u8, pressed: bool) {
+        self.input[input as usize] = pressed;
     }
 
     fn convert_to_bcd(&mut self, target_register: u8) {
@@ -194,7 +209,7 @@ impl Chip8 {
         if swap {
             std::mem::swap(&mut x, &mut y);
         }
-        
+
         self.registers[target_register as usize] = x.wrapping_sub(y);
 
         if x >= y {
@@ -227,7 +242,6 @@ impl Chip8 {
 
     fn value_conditional_skip(&mut self, register: u8, value: u8, inverse: bool) {
         let vx = self.registers[register as usize];
-        println!("Checking if equal v{:02x} = {:02x} :: {:02x}", register, value, vx);
 
         if (vx == value) ^ inverse {
             self.program_counter += 2;
@@ -247,8 +261,8 @@ impl Chip8 {
                 let bit = (sprite >> b) & 1;
                 let bit_bool = bit != 0;
 
-                if bit_bool && x < 64 && y < 32 {
-                    self.display[(y % 32) as usize][(x % 64) as usize] = true;
+                if x < 64 && y < 32 {
+                    self.display[(y % 32) as usize][(x % 64) as usize] ^= bit_bool;
                 } else if bit_bool {
                     println!("out of bounds: {},{}", x, y);
                 }
@@ -257,17 +271,14 @@ impl Chip8 {
             y += 1;
             x -= 8;
         }
-
-        println!("Drawing sprite at {},{} with height of {}", x, y, height + 1);
     }
 
     fn set_program_counter(&mut self, value: u16) {
-       // println!("Setting program counter to: {:04X}", value);
+        // println!("Setting program counter to: {:04X}", value);
         self.program_counter = value;
     }
 
     fn set_v_register(&mut self, register: u8, value: u8) {
-        println!("Setting register v{:01X} to {:02X}", register, value);
         if register > 0xF {
             println!("Invalid V register: {:01X}", register);
             return;
@@ -278,7 +289,7 @@ impl Chip8 {
 
 
     fn add_v_register(&mut self, register: u8, value: u8) {
-        println!("Adding value to register v{:01X}: {:02X}", register, value);
+        //println!("Adding value to register v{:01X}: {:02X}", register, value);
         if register > 0xF {
             println!("Invalid V register: {:01X}", register);
             return;
@@ -288,13 +299,12 @@ impl Chip8 {
     }
 
     fn set_index_register(&mut self, value: u16) {
-        println!("Setting index register to {:04X}", value);
+        //println!("Setting index register to {:04X}", value);
         self.index_register = value;
     }
 
     fn clear_screen(&mut self) {
-        // TODO: Clear screen
-        println!("Clear display")
+        self.display = [[false; 64]; 32];
     }
 
     fn fetch_instruction(&self) -> u16 {
@@ -339,7 +349,8 @@ impl Opcode {
 pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
-     // let rom = include_bytes!("roms/flags.ch8");
-    let rom = include_bytes!("roms/quirks.ch8");
+    // let rom = include_bytes!("roms/flags.ch8");
+    // let rom = include_bytes!("roms/quirks.ch8");
+    let rom = include_bytes!("roms/keypad.ch8");
     rom.to_vec()
 }
