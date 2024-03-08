@@ -54,9 +54,7 @@ impl Chip8 {
         let opcode = Opcode::from_instruction(instruction);
 
         self.program_counter += 2;
-        if (instruction != 0x1542) {
-            //println!("Instruction {}: {:04x}", self.total_cycles, instruction);
-        }
+
         match opcode {
             Opcode { opcode: 0x1, nnn, .. } => self.set_program_counter(nnn),
             Opcode { opcode: 0x2, nnn, .. } => self.jump_sub(nnn),
@@ -76,6 +74,7 @@ impl Chip8 {
             Opcode { opcode: 0x8, n: 0xE, x, y, .. } => self.register_shift(x, y, true),
             Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, true),
             Opcode { opcode: 0xA, nnn, .. } => self.set_index_register(nnn),
+            Opcode { opcode: 0xB, nnn, .. } => self.jump_offset(nnn),
             Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
             Opcode { opcode: 0xE, nn: 0x9E, x, .. } => self.input_conditional_skip(x, false),
             Opcode { opcode: 0xE, nn: 0xA1, x, .. } => self.input_conditional_skip(x, true),
@@ -255,6 +254,10 @@ impl Chip8 {
         self.set_program_counter(position);
     }
 
+    fn jump_offset(&mut self, position: u16) {
+        self.set_program_counter(position + self.registers[0] as u16);
+    }
+
     fn register_conditional_skip(&mut self, register_a: u8, register_b: u8, inverse: bool) {
         let vx = self.registers[register_a as usize];
         let vy = self.registers[register_b as usize];
@@ -374,7 +377,7 @@ pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
     // let rom = include_bytes!("roms/flags.ch8");
-    // let rom = include_bytes!("roms/quirks.ch8");
-    let rom = include_bytes!("roms/keypad.ch8");
+     let rom = include_bytes!("roms/quirks.ch8");
+//    let rom = include_bytes!("roms/keypad.ch8");
     rom.to_vec()
 }
