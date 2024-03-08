@@ -1,4 +1,4 @@
-use std::{process::{self}, usize};
+use std::{process, u8, usize};
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -12,6 +12,7 @@ pub struct Chip8 {
     sound_timer: u8,
     legacy_instructions: bool,
     total_cycles: u32,
+    blocking_input: Option<u8>,
 }
 
 struct Opcode {
@@ -38,6 +39,7 @@ impl Chip8 {
             total_cycles: 0,
             delay_timer: 0,
             sound_timer: 0,
+            blocking_input: None,
         }
     }
 
@@ -77,12 +79,13 @@ impl Chip8 {
             Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
             Opcode { opcode: 0xE, nn: 0x9E, x, .. } => self.input_conditional_skip(x, false),
             Opcode { opcode: 0xE, nn: 0xA1, x, .. } => self.input_conditional_skip(x, true),
+            Opcode { opcode: 0xF, nn: 0x07, x, .. } => self.get_delay_timer(x),
+            Opcode { opcode: 0xF, nn: 0x0A, x, .. } => self.wait_for_input(x),
+            Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
+            Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
             Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x),
             Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
-            Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
-            Opcode { opcode: 0xF, nn: 0x07, x, .. } => self.get_delay_timer(x),
-            Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
             Opcode { instruction: 0x00E0, .. } => self.clear_screen(),
             Opcode { instruction: 0x00EE, .. } => self.return_sub(),
             Opcode { instruction, .. } => {
@@ -113,6 +116,27 @@ impl Chip8 {
     fn add_index_register(&mut self, target_register: u8) {
         // TODO: Add amiga style VF register handling
         self.index_register = self.index_register.wrapping_add(self.registers[target_register as usize].into());
+    }
+
+    fn wait_for_input(&mut self, target_register: u8) {
+        match self.blocking_input {
+            None => {
+                let first_input = self.input.iter().enumerate().find(|&(_, &value)| value);
+
+                match first_input {
+                    Some((index, _)) => self.blocking_input = Some(index as u8),
+                    None => self.program_counter -= 2,
+                }
+            }
+            Some(input) => {
+                if self.input[input as usize] == false {
+                    self.registers[target_register as usize] = input;
+                    self.blocking_input = None;
+                } else {
+                    self.program_counter -= 2;
+                }
+            }
+        }
     }
 
     fn input_conditional_skip(&mut self, source_register: u8, inverse: bool) {
