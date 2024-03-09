@@ -84,6 +84,7 @@ impl Chip8 {
             Opcode { opcode: 0xF, nn: 0x0A, x, .. } => self.wait_for_input(x),
             Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
             Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
+            Opcode { opcode: 0xF, nn: 0x29, x, .. } => self.index_to_font_char(x),
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
             Opcode { opcode: 0xF, nn: 0x55, x, .. } => self.register_to_memory(x),
             Opcode { opcode: 0xF, nn: 0x65, x, .. } => self.memory_to_register(x),
@@ -364,6 +365,17 @@ impl Chip8 {
         for (index, &byte) in rom.iter().enumerate().take(end) {
             self.memory[512 + index] = byte;
         }
+
+        let font = get_font_chars();
+
+        for (index, &byte) in font.iter().enumerate(){
+            self.memory[0x050 + index as usize] = byte;
+        }
+    }
+
+    fn index_to_font_char(&mut self, target_register: u8) {
+        let char = self.registers[target_register as usize];
+        self.index_register = 0x050 + (char as u16 * 5);
     }
 }
 
@@ -381,10 +393,32 @@ impl Opcode {
 }
 
 pub fn load_rom() -> Vec<u8> {
-    // let rom = include_bytes!("roms/ibm.ch8");
-    // let rom = include_bytes!("roms/corax.plus.ch8");
-    // let rom = include_bytes!("roms/flags.ch8");
-    let rom = include_bytes!("roms/quirks.ch8");
-//    let rom = include_bytes!("roms/keypad.ch8");
+    // let rom = include_bytes!("roms/tests/ibm.ch8");
+    // let rom = include_bytes!("roms/tests/corax.plus.ch8");
+    // let rom = include_bytes!("roms/tests/flags.ch8");
+    // let rom = include_bytes!("roms/tests/tests/quirks.ch8");
+    // let rom = include_bytes!("roms/tests/keypad.ch8");
+    let rom = include_bytes!("roms/games/PONG");
     rom.to_vec()
+}
+
+pub fn get_font_chars() -> Vec<u8> {
+    vec![
+        0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
+        0x20, 0x60, 0x20, 0x20, 0x70, // 1
+        0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
+        0xF0, 0x10, 0xF0, 0x10, 0xF0, // 3
+        0x90, 0x90, 0xF0, 0x10, 0x10, // 4
+        0xF0, 0x80, 0xF0, 0x10, 0xF0, // 5
+        0xF0, 0x80, 0xF0, 0x90, 0xF0, // 6
+        0xF0, 0x10, 0x20, 0x40, 0x40, // 7
+        0xF0, 0x90, 0xF0, 0x90, 0xF0, // 8
+        0xF0, 0x90, 0xF0, 0x10, 0xF0, // 9
+        0xF0, 0x90, 0xF0, 0x90, 0x90, // A
+        0xE0, 0x90, 0xE0, 0x90, 0xE0, // B
+        0xF0, 0x80, 0x80, 0x80, 0xF0, // C
+        0xE0, 0x90, 0x90, 0x90, 0xE0, // D
+        0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
+        0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+    ]
 }
