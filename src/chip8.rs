@@ -412,7 +412,8 @@ pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/tests/flags.ch8");
     // let rom = include_bytes!("roms/tests/tests/quirks.ch8");
     // let rom = include_bytes!("roms/tests/keypad.ch8");
-    let rom = include_bytes!("roms/games/PONG");
+    // let rom = include_bytes!("roms/games/PONG");
+    let rom = include_bytes!("roms/games/TETRIS");
     rom.to_vec()
 }
 
