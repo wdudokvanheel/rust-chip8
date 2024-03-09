@@ -1,4 +1,5 @@
 use std::{process, u8, usize};
+use rand::{Rng, thread_rng};
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -77,6 +78,7 @@ impl Chip8 {
             Opcode { opcode: 0x9, x, y, .. } => self.register_conditional_skip(x, y, true),
             Opcode { opcode: 0xA, nnn, .. } => self.set_index_register(nnn),
             Opcode { opcode: 0xB, nnn, .. } => self.jump_offset(nnn),
+            Opcode { opcode: 0xC, x, nn, .. } => self.set_register_random(x, nn),
             Opcode { opcode: 0xD, x, y, n, .. } => self.draw_sprite(x, y, n),
             Opcode { opcode: 0xE, nn: 0x9E, x, .. } => self.input_conditional_skip(x, false),
             Opcode { opcode: 0xE, nn: 0xA1, x, .. } => self.input_conditional_skip(x, true),
@@ -141,6 +143,13 @@ impl Chip8 {
                 }
             }
         }
+    }
+
+    fn set_register_random(&mut self, target_register: u8, mod_and: u8){
+        let mut rng = thread_rng();
+        let random_value: u8 = rng.gen_range(0..=255);
+
+        self.registers[target_register as usize] = random_value & mod_and;
     }
 
     fn input_conditional_skip(&mut self, source_register: u8, inverse: bool) {
