@@ -12,6 +12,7 @@ pub struct Chip8 {
     sound_timer: u8,
     legacy_instructions: bool,
     total_cycles: u32,
+    blocking_on_draw: bool,
     blocking_input: Option<u8>,
 }
 
@@ -35,20 +36,21 @@ impl Chip8 {
             stack: vec!(),
             display: [[false; 64]; 32],
             input: [false; 16],
-            legacy_instructions: false,
+            legacy_instructions: true,
             total_cycles: 0,
             delay_timer: 0,
             sound_timer: 0,
+            blocking_on_draw: false,
             blocking_input: None,
         }
     }
 
     pub fn cycle(&mut self) {
-        self.total_cycles += 1;
-
-        if (self.total_cycles > 23) {
-            //exit(1);
+        if self.blocking_on_draw {
+            return;
         }
+
+        self.total_cycles += 1;
 
         let instruction = self.fetch_instruction();
         let opcode = Opcode::from_instruction(instruction);
@@ -102,6 +104,8 @@ impl Chip8 {
         if self.sound_timer > 0 {
             self.sound_timer -= 1;
         }
+
+        self.blocking_on_draw = false;
     }
 
     fn set_delay_timer(&mut self, source_register: u8) {
@@ -146,10 +150,11 @@ impl Chip8 {
     }
 
     fn register_to_memory(&mut self, target_register: u8) {
-        // TODO: Add support for legacy
-        //  println!("Writing memory to v0 to v{:01x}", target_register);
         for i in 0..=target_register {
             self.memory[(self.index_register + i as u16) as usize] = self.registers[i as usize];
+        }
+        if self.legacy_instructions {
+            self.index_register += (target_register as u16) + 1;
         }
     }
 
@@ -159,7 +164,7 @@ impl Chip8 {
         }
 
         if self.legacy_instructions {
-            self.index_register += target_register as u16;
+            self.index_register += (target_register as u16) + 1;
         }
     }
 
@@ -184,14 +189,17 @@ impl Chip8 {
     }
 
     fn register_or(&mut self, target_register: u8, source_register: u8) {
+        self.registers[0xF] = 0;
         self.registers[target_register as usize] = self.registers[target_register as usize] | self.registers[source_register as usize];
     }
 
     fn register_xor(&mut self, target_register: u8, source_register: u8) {
+        self.registers[0xF] = 0;
         self.registers[target_register as usize] = self.registers[target_register as usize] ^ self.registers[source_register as usize];
     }
 
     fn register_and(&mut self, target_register: u8, source_register: u8) {
+        self.registers[0xF] = 0;
         self.registers[target_register as usize] = self.registers[target_register as usize] & self.registers[source_register as usize];
     }
 
@@ -276,7 +284,7 @@ impl Chip8 {
     }
 
     fn draw_sprite(&mut self, x: u8, y: u8, height: u8) {
-        let mut x = self.registers[x as usize] % 64;
+        let x = self.registers[x as usize] % 64;
         let mut y = self.registers[y as usize] % 32;
         self.registers[0xF] = 0;
 
@@ -284,20 +292,31 @@ impl Chip8 {
             let address = self.index_register + (i as u16);
             let sprite = self.memory[address as usize];
 
+            let mut x = x;
+
+            if y >= 32 {
+                break;
+            }
+
             for b in (0..8).rev() {
                 let bit = (sprite >> b) & 1;
                 let bit_bool = bit != 0;
 
-                if x < 64 && y < 32 {
-                    self.display[(y % 32) as usize][(x % 64) as usize] ^= bit_bool;
-                } else if bit_bool {
-                    println!("out of bounds: {},{}", x, y);
+                if x >= 64 {
+                    break;
                 }
+
+                if self.display[y as usize][x as usize] && bit_bool {
+                    self.registers[0xF] = 1;
+                }
+
+                self.display[y as usize][x as usize] ^= bit_bool;
+
                 x += 1;
             }
             y += 1;
-            x -= 8;
         }
+        self.blocking_on_draw = true;
     }
 
     fn set_program_counter(&mut self, value: u16) {
@@ -314,7 +333,6 @@ impl Chip8 {
         self.registers[register as usize] = value;
     }
 
-
     fn add_v_register(&mut self, register: u8, value: u8) {
         //println!("Adding value to register v{:01X}: {:02X}", register, value);
         if register > 0xF {
@@ -326,7 +344,6 @@ impl Chip8 {
     }
 
     fn set_index_register(&mut self, value: u16) {
-        //println!("Setting index register to {:04X}", value);
         self.index_register = value;
     }
 
@@ -348,16 +365,6 @@ impl Chip8 {
             self.memory[512 + index] = byte;
         }
     }
-
-    fn debug_print(&self) {
-        println!("Chip8 Emulator State:");
-        println!("Registers:");
-        for (index, &value) in self.registers.iter().enumerate() {
-            println!("V{:X}: {:02X}", index, value);
-        }
-        println!("Index Register: {:04X}", self.index_register);
-        println!("Program Counter: {:04X}", self.program_counter);
-    }
 }
 
 impl Opcode {
@@ -377,7 +384,7 @@ pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/ibm.ch8");
     // let rom = include_bytes!("roms/corax.plus.ch8");
     // let rom = include_bytes!("roms/flags.ch8");
-     let rom = include_bytes!("roms/quirks.ch8");
+    let rom = include_bytes!("roms/quirks.ch8");
 //    let rom = include_bytes!("roms/keypad.ch8");
     rom.to_vec()
 }
