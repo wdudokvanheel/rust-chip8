@@ -94,7 +94,6 @@ fn update(_app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
 fn input(_app: &mut RuntimeContext, data: &mut RuntimeData, keycode: KeyCode, pressed: bool) {
     if let Some(key) = data.key_map.get(&keycode) {
         data.chip8.set_input(*key, pressed);
-        println!("Set {:02} to {}", *key, pressed);
     }
 }
 

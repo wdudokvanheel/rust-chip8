@@ -85,6 +85,7 @@ impl Chip8 {
             Opcode { opcode: 0xF, nn: 0x07, x, .. } => self.get_delay_timer(x),
             Opcode { opcode: 0xF, nn: 0x0A, x, .. } => self.wait_for_input(x),
             Opcode { opcode: 0xF, nn: 0x15, x, .. } => self.set_delay_timer(x),
+            Opcode { opcode: 0xF, nn: 0x18, x, .. } => self.set_sound_timer(x),
             Opcode { opcode: 0xF, nn: 0x1E, x, .. } => self.add_index_register(x),
             Opcode { opcode: 0xF, nn: 0x29, x, .. } => self.index_to_font_char(x),
             Opcode { opcode: 0xF, nn: 0x33, x, .. } => self.convert_to_bcd(x),
@@ -113,6 +114,10 @@ impl Chip8 {
 
     fn set_delay_timer(&mut self, source_register: u8) {
         self.delay_timer = self.registers[source_register as usize];
+    }
+
+    fn set_sound_timer(&mut self, source_register: u8) {
+        self.sound_timer = self.registers[source_register as usize];
     }
 
     fn get_delay_timer(&mut self, target_register: u8) {
