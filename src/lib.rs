@@ -43,6 +43,16 @@ impl WasmRuntime {
         };
     }
 
+    pub fn get_roms(&self) -> Vec<JsValue> {
+        let mut roms = vec![];
+
+        if let Some(data) = self.runtime.data.as_ref() {
+            roms = data.rom_list();
+        }
+
+        return roms.iter().map(|name| JsValue::from_str(&format!("{}", name))).collect();
+    }
+
     pub fn get_sender(&mut self) -> CallBack {
         CallBack {
             sender: self.runtime.get_command_sender()

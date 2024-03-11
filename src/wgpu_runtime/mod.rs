@@ -23,7 +23,7 @@ pub struct RuntimeContext {
 }
 
 pub struct WgpuRuntime<AppData, RuntimeCommand> {
-    data: Option<AppData>,
+    pub data: Option<AppData>,
     context: RuntimeContext,
     event_loop: EventLoop<()>,
     callback: RuntimeCallbackFunctions<AppData, RuntimeCommand>,
@@ -55,7 +55,7 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
 
         let (sender, receiver) = mpsc::channel();
 
-        let runtime = WgpuRuntime {
+        let mut runtime = WgpuRuntime {
             context: RuntimeContext {
                 gfx,
                 mouse_position: Vec2f::zero(),
@@ -68,11 +68,12 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
             command_receiver: receiver,
         };
 
+        runtime.data = Some((runtime.callback.init)(&mut runtime.context));
+
         runtime
     }
 
     pub fn start(mut self) {
-        self.data = Some((self.callback.init)(&mut self.context));
         self.run();
     }
 

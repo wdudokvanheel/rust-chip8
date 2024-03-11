@@ -22,13 +22,21 @@
 	<script type="module">
 		import {default as init, WasmRuntime} from './chip8.js';
 
+		const canvas = document.getElementById("canvas");
+
 		let runtime = undefined;
 		let callback = undefined;
+		let roms = [];
 
 		function reset() {
 			if(callback != undefined) {
-				// callback.reset();
-				callback.load_rom(1);
+				callback.reset();
+			}
+		}
+
+		function load_rom(id) {
+			if(callback != undefined) {
+				callback.load_rom(id);
 			}
 		}
 
@@ -40,29 +48,57 @@
 		start().then(value => {
 			runtime = value
 			callback = runtime.get_sender();
+			roms = runtime.get_roms();
+			create_rom_list();
 			runtime.start();
 		});
-
-		const canvas = document.getElementById("canvas");
 
 		canvas.addEventListener('contextmenu', function (e) {
 			e.preventDefault();
 		});
 
-
 		document.addEventListener("DOMContentLoaded", function () {
 			const resetButton = document.getElementById("reset");
 			resetButton.addEventListener("click", reset);
+
+			const romButtons = document.getElementsByClassName("loadrom");
+			for (const button of romButtons) {
+				button.addEventListener("click", function (event) {
+					const romId = event.currentTarget.getAttribute('data-rom-id');
+					load_rom(Number(romId));
+				});
+			}
 		});
 
+		function create_rom_list() {
+			const romButtonsContainer = document.querySelector('.rombuttons');
+			romButtonsContainer.innerHTML = '';
+
+			roms.forEach((rom, index) => {
+				const romButtonDiv = document.createElement('div');
+				const romButton = document.createElement('button');
+				romButton.className = 'loadrom';
+				romButton.textContent = rom;
+				romButton.setAttribute('data-rom-id', index);
+				romButton.addEventListener("click", function (event) {
+					const romId = event.currentTarget.getAttribute('data-rom-id');
+					load_rom(Number(romId));
+				});
+				romButtonDiv.appendChild(romButton);
+				romButtonsContainer.appendChild(romButtonDiv);
+			});
+		}
 	</script>
 </head>
 <body>
 	<div>
 		<button id="reset">
-			Reset
+			Reset device
 		</button>
 	</div>
+
+	<div class="rombuttons"></div>
+
 	<div>
 		<canvas id="canvas"></canvas>
 	</div>

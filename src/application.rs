@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
-use std::sync::mpsc::Sender;
-use std::thread;
 
-use web_sys::console::warn_0;
 use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
@@ -44,8 +41,8 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
         Vec2i::new(1280, 640),
         |context| {
             let roms = create_rom_list();
-
             let mut device = roms[0].to_device();
+
             let shader = create_shader(&context.gfx.device);
             let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
                 (&context.gfx.device, &shader, context.gfx.texture_format);
@@ -110,7 +107,6 @@ fn create_rom_list() -> Vec<Chip8Rom> {
 fn on_message(_app: &mut RuntimeContext, data: &mut RuntimeData, command: AppCommand) {
     match command {
         RESET => {
-            log::warn!("Got reset message");
             data.reset_device();
         }
         LOAD_ROM(id) => {
@@ -252,6 +248,10 @@ impl RuntimeData {
     pub fn set_rom(&mut self, id: u8) {
         self.current_rom = id;
         self.reset_device();
+    }
+
+    pub fn rom_list(&self) -> Vec<String> {
+        self.roms.iter().map(|rom| rom.name.clone()).collect()
     }
 }
 
