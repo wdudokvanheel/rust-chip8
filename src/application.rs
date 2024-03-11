@@ -1,15 +1,23 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
+use std::sync::mpsc::Sender;
+use std::thread;
 
 use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
 
+use crate::application::AppCommand::RESET;
 use crate::chip8::{Chip8, load_rom};
 use crate::wgpu_runtime::{RuntimeContext, Vertex, WgpuRuntime};
 use crate::wgpu_runtime::wgpu_math::Vec2i;
 
-struct RuntimeData {
+#[derive(Debug)]
+pub enum AppCommand {
+    RESET
+}
+
+pub struct RuntimeData {
     chip8: Chip8,
     render_pipeline: RenderPipeline,
     uniform_buffer: Buffer,
@@ -25,17 +33,17 @@ pub(crate) struct ShaderUniform {
     value: [u32; 2048],
 }
 
-pub fn start_application() {
+pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
     println!("Chip 8 Emulator by Bitechular Innovations");
 
-    let mut runtime = WgpuRuntime::new(
+    let mut runtime = WgpuRuntime::<_, AppCommand>::new(
         "Chip 8 Emulator - Bitechular Innovations",
         Vec2i::new(1280, 640),
         |context| {
             let rom = load_rom();
 
             let mut device = Chip8::new();
-            device.set_rom(rom);
+            device.set_rom(&rom);
             let shader = create_shader(&context.gfx.device);
             let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
                 (&context.gfx.device, &shader, context.gfx.texture_format);
@@ -74,10 +82,20 @@ pub fn start_application() {
         },
     );
 
+    runtime.on_runtime_command(on_message);
     runtime.on_render(render);
     runtime.on_update(update);
     runtime.on_key_event(input);
-    runtime.start();
+
+    return runtime;
+}
+
+fn on_message(_app: &mut RuntimeContext, data: &mut RuntimeData, command: AppCommand) {
+    match command {
+        RESET => {
+            log::warn!("Got reset message");
+        }
+    }
 }
 
 fn update(_app: &mut RuntimeContext, data: &mut RuntimeData, elapsed: f32) {
@@ -219,7 +237,7 @@ impl ShaderUniform {
 
         for (row_index, row) in display.iter().enumerate() {
             for (col_index, &col_value) in row.iter().enumerate() {
-                if (col_value) {
+                if col_value {
                     n.value[row_index * 64 + col_index] = 1;
                 }
             }

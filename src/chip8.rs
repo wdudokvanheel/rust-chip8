@@ -1,5 +1,5 @@
 use std::{process, u8, usize};
-use rand::{Rng, thread_rng};
+use getrandom::getrandom;
 
 pub struct Chip8 {
     memory: [u8; 4096],
@@ -11,7 +11,7 @@ pub struct Chip8 {
     input: [bool; 16],
     delay_timer: u8,
     sound_timer: u8,
-    legacy_instructions: bool,
+    quirk_config: QuirkConfig,
     total_cycles: u32,
     blocking_on_draw: bool,
     blocking_input: Option<u8>,
@@ -27,6 +27,26 @@ struct Opcode {
     nnn: u16,
 }
 
+#[derive(Copy, Clone)]
+struct QuirkConfig {
+    memory_index_register_increase: bool,
+    source_vy_bitshift: bool,
+}
+
+struct Chip8Config{
+    rom: Vec<u8>,
+    quirks: QuirkConfig,
+}
+
+impl Chip8Config{
+   pub fn build(&self) -> Chip8 {
+        let mut chip8 = Chip8::new();
+        chip8.quirk_config = self.quirks;
+        chip8.set_rom(&self.rom);
+        return chip8;
+    }
+}
+
 impl Chip8 {
     pub fn new() -> Self {
         Chip8 {
@@ -37,7 +57,7 @@ impl Chip8 {
             stack: vec!(),
             display: [[false; 64]; 32],
             input: [false; 16],
-            legacy_instructions: true,
+            quirk_config: QuirkConfig::new(),
             total_cycles: 0,
             delay_timer: 0,
             sound_timer: 0,
@@ -151,10 +171,10 @@ impl Chip8 {
     }
 
     fn set_register_random(&mut self, target_register: u8, mod_and: u8){
-        let mut rng = thread_rng();
-        let random_value: u8 = rng.gen_range(0..=255);
+        let mut buf = [0u8; 1];
+        getrandom(&mut buf).expect("Random number");
 
-        self.registers[target_register as usize] = random_value & mod_and;
+        self.registers[target_register as usize] = buf[0] & mod_and;
     }
 
     fn input_conditional_skip(&mut self, source_register: u8, inverse: bool) {
@@ -168,7 +188,7 @@ impl Chip8 {
         for i in 0..=target_register {
             self.memory[(self.index_register + i as u16) as usize] = self.registers[i as usize];
         }
-        if self.legacy_instructions {
+        if self.quirk_config.memory_index_register_increase {
             self.index_register += (target_register as u16) + 1;
         }
     }
@@ -178,7 +198,7 @@ impl Chip8 {
             self.registers[i as usize] = self.memory[(self.index_register + i as u16) as usize];
         }
 
-        if self.legacy_instructions {
+        if self.quirk_config.memory_index_register_increase {
             self.index_register += (target_register as u16) + 1;
         }
     }
@@ -221,7 +241,7 @@ impl Chip8 {
     fn register_shift(&mut self, target_register: u8, source_register: u8, inverse: bool) {
         let bit_out: u8;
 
-        if self.legacy_instructions {
+        if self.quirk_config.source_vy_bitshift {
             self.registers[target_register as usize] = self.registers[source_register as usize];
         }
 
@@ -373,7 +393,7 @@ impl Chip8 {
         (high_byte << 8) | low_byte
     }
 
-    pub fn set_rom(&mut self, rom: Vec<u8>) {
+    pub fn set_rom(&mut self, rom: &Vec<u8>) {
         let end = std::cmp::min(rom.len(), self.memory.len() - 512);
 
         for (index, &byte) in rom.iter().enumerate().take(end) {
@@ -406,6 +426,15 @@ impl Opcode {
     }
 }
 
+impl QuirkConfig{
+    fn new() -> Self{
+        QuirkConfig{
+            memory_index_register_increase: false,
+            source_vy_bitshift: false  
+        }
+    }
+}
+
 pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/tests/ibm.ch8");
     // let rom = include_bytes!("roms/tests/corax.plus.ch8");
@@ -413,7 +442,8 @@ pub fn load_rom() -> Vec<u8> {
     // let rom = include_bytes!("roms/tests/tests/quirks.ch8");
     // let rom = include_bytes!("roms/tests/keypad.ch8");
     // let rom = include_bytes!("roms/games/PONG");
-    let rom = include_bytes!("roms/games/TETRIS");
+    // let rom = include_bytes!("roms/games/TETRIS");
+    let rom = include_bytes!("roms/games/BLINKY");
     rom.to_vec()
 }
 

@@ -11,5 +11,5 @@ mod wgpu_runtime;
 mod application;
 
 fn main() {
-    start_application();
+    start_application().start();
 }

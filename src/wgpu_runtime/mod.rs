@@ -1,3 +1,6 @@
+use std::sync::mpsc;
+use std::sync::mpsc::{Receiver, Sender};
+
 use bytemuck::Zeroable;
 use instant::Instant;
 use wgpu::Texture;
@@ -7,6 +10,7 @@ use winit::event::ElementState::Pressed;
 use winit::event_loop::{ControlFlow, EventLoop, EventLoopBuilder};
 use winit::keyboard::KeyCode;
 
+use crate::application::AppCommand;
 use crate::wgpu_runtime::wgpu_context::WgpuContext;
 use crate::wgpu_runtime::wgpu_math::{Vec2f, Vec2i};
 
@@ -18,15 +22,17 @@ pub struct RuntimeContext {
     pub mouse_position: Vec2f,
 }
 
-pub struct WgpuRuntime<AppData> {
+pub struct WgpuRuntime<AppData, RuntimeCommand> {
     data: Option<AppData>,
     context: RuntimeContext,
     event_loop: EventLoop<()>,
-    callback: RuntimeCallbackFunctions<AppData>,
+    callback: RuntimeCallbackFunctions<AppData, RuntimeCommand>,
     logic_update_frame: f32,
+    command_sender: Sender<RuntimeCommand>,
+    command_receiver: Receiver<RuntimeCommand>,
 }
 
-pub struct RuntimeCallbackFunctions<AppData> {
+pub struct RuntimeCallbackFunctions<AppData, RuntimeCommand> {
     pub init: fn(&mut RuntimeContext) -> AppData,
     pub update: fn(&mut RuntimeContext, &mut AppData, f32),
     pub render: fn(&mut RuntimeContext, &mut AppData, &Texture),
@@ -34,18 +40,22 @@ pub struct RuntimeCallbackFunctions<AppData> {
     pub key_input: fn(&mut RuntimeContext, &mut AppData, KeyCode, bool),
     pub mouse_move: fn(&mut RuntimeContext, &mut AppData, Vec2f),
     pub mouse_click: fn(&mut RuntimeContext, &mut AppData, Vec2i, MouseButton, bool),
+    pub runtime_command: fn(&mut RuntimeContext, &mut AppData, RuntimeCommand),
 }
 
-impl<AppData: 'static> WgpuRuntime<AppData> {
+impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeCommand> {
     pub fn new(
         title: &str,
         window_size: Vec2i,
         init_callback: fn(&mut RuntimeContext) -> AppData,
     ) -> Self {
-        WgpuRuntime::<AppData>::init_logger();
+        WgpuRuntime::<AppData, RuntimeCommand>::init_logger();
         let event_loop = EventLoopBuilder::new().build().expect("Failed to create event loop");
         let gfx = pollster::block_on(WgpuContext::new(&event_loop, title, window_size));
-        WgpuRuntime {
+
+        let (sender, receiver) = mpsc::channel();
+
+        let runtime = WgpuRuntime {
             context: RuntimeContext {
                 gfx,
                 mouse_position: Vec2f::zero(),
@@ -54,12 +64,20 @@ impl<AppData: 'static> WgpuRuntime<AppData> {
             event_loop,
             callback: RuntimeCallbackFunctions::new(init_callback),
             logic_update_frame: 1000.0 / 60.0,
-        }
+            command_sender: sender,
+            command_receiver: receiver,
+        };
+
+        runtime
     }
 
     pub fn start(mut self) {
         self.data = Some((self.callback.init)(&mut self.context));
         self.run();
+    }
+
+    pub fn get_command_sender(&self) -> Sender<RuntimeCommand> {
+        self.command_sender.clone()
     }
 
     fn run(mut self) {
@@ -69,7 +87,11 @@ impl<AppData: 'static> WgpuRuntime<AppData> {
 
         let mut last_update_time = Instant::now();
 
-        self.event_loop.run(move |event, _, control_flow| {
+        self.event_loop.run(|event, _, control_flow| {
+            while let Ok(message) = self.command_receiver.try_recv() {
+                (callback.runtime_command)(context, data, message);
+            }
+
             match event {
                 Event::WindowEvent { event, .. } => match event {
                     WindowEvent::CloseRequested => {
@@ -161,6 +183,12 @@ impl<AppData: 'static> WgpuRuntime<AppData> {
         self.callback.mouse_move = callback;
     }
 
+    pub fn on_runtime_command(&mut self,
+                              callback: fn(&mut RuntimeContext, &mut AppData, RuntimeCommand),
+    ) {
+        self.callback.runtime_command = callback;
+    }
+
     pub fn on_mouse_click(
         &mut self,
         callback: fn(
@@ -189,7 +217,7 @@ impl<AppData: 'static> WgpuRuntime<AppData> {
     }
 }
 
-impl<AppData> RuntimeCallbackFunctions<AppData> {
+impl<AppData, RuntimeCommand> RuntimeCallbackFunctions<AppData, RuntimeCommand> {
     pub fn new(init: fn(&mut RuntimeContext) -> AppData) -> Self {
         Self {
             init,
@@ -199,6 +227,7 @@ impl<AppData> RuntimeCallbackFunctions<AppData> {
             key_input: |_, _, _, _| {},
             mouse_move: |_, _, _| {},
             mouse_click: |_, _, _, _, _| {},
+            runtime_command: |_, _, _| {},
         }
     }
 }
