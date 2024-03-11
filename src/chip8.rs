@@ -1,4 +1,5 @@
 use std::{process, u8, usize};
+
 use getrandom::getrandom;
 
 pub struct Chip8 {
@@ -33,16 +34,25 @@ struct QuirkConfig {
     source_vy_bitshift: bool,
 }
 
-struct Chip8Config{
-    rom: Vec<u8>,
-    quirks: QuirkConfig,
+pub struct Chip8Rom {
+    pub name: String,
+    pub data: Vec<u8>,
+    pub quirks: QuirkConfig,
 }
 
-impl Chip8Config{
-   pub fn build(&self) -> Chip8 {
+impl Chip8Rom {
+    pub fn new(name: &str, data: Vec<u8>) -> Self {
+        Chip8Rom {
+            name: name.to_string(),
+            data,
+            quirks: QuirkConfig::new(),
+        }
+    }
+
+    pub fn to_device(&self) -> Chip8 {
         let mut chip8 = Chip8::new();
         chip8.quirk_config = self.quirks;
-        chip8.set_rom(&self.rom);
+        chip8.set_rom(&self.data);
         return chip8;
     }
 }
@@ -170,7 +180,7 @@ impl Chip8 {
         }
     }
 
-    fn set_register_random(&mut self, target_register: u8, mod_and: u8){
+    fn set_register_random(&mut self, target_register: u8, mod_and: u8) {
         let mut buf = [0u8; 1];
         getrandom(&mut buf).expect("Random number");
 
@@ -402,7 +412,7 @@ impl Chip8 {
 
         let font = get_font_chars();
 
-        for (index, &byte) in font.iter().enumerate(){
+        for (index, &byte) in font.iter().enumerate() {
             self.memory[0x050 + index as usize] = byte;
         }
     }
@@ -426,25 +436,13 @@ impl Opcode {
     }
 }
 
-impl QuirkConfig{
-    fn new() -> Self{
-        QuirkConfig{
+impl QuirkConfig {
+    fn new() -> Self {
+        QuirkConfig {
             memory_index_register_increase: false,
-            source_vy_bitshift: false  
+            source_vy_bitshift: false,
         }
     }
-}
-
-pub fn load_rom() -> Vec<u8> {
-    // let rom = include_bytes!("roms/tests/ibm.ch8");
-    // let rom = include_bytes!("roms/tests/corax.plus.ch8");
-    // let rom = include_bytes!("roms/tests/flags.ch8");
-    // let rom = include_bytes!("roms/tests/tests/quirks.ch8");
-    // let rom = include_bytes!("roms/tests/keypad.ch8");
-    // let rom = include_bytes!("roms/games/PONG");
-    // let rom = include_bytes!("roms/games/TETRIS");
-    let rom = include_bytes!("roms/games/BLINKY");
-    rom.to_vec()
 }
 
 pub fn get_font_chars() -> Vec<u8> {
@@ -464,6 +462,6 @@ pub fn get_font_chars() -> Vec<u8> {
         0xF0, 0x80, 0x80, 0x80, 0xF0, // C
         0xE0, 0x90, 0x90, 0x90, 0xE0, // D
         0xF0, 0x80, 0xF0, 0x80, 0xF0, // E
-        0xF0, 0x80, 0xF0, 0x80, 0x80  // F
+        0xF0, 0x80, 0xF0, 0x80, 0x80,  // F
     ]
 }

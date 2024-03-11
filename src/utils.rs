@@ -1,4 +1,4 @@
-pub fn init_logger(){
+pub fn init_logger() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         use simple_logger::SimpleLogger;

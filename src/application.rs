@@ -3,18 +3,19 @@ use std::collections::HashMap;
 use std::sync::mpsc::Sender;
 use std::thread;
 
+use web_sys::console::warn_0;
 use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
 
-use crate::application::AppCommand::RESET;
-use crate::chip8::{Chip8, load_rom};
+use crate::application::AppCommand::{LOAD_ROM, RESET};
+use crate::chip8::{Chip8, Chip8Rom};
 use crate::wgpu_runtime::{RuntimeContext, Vertex, WgpuRuntime};
 use crate::wgpu_runtime::wgpu_math::Vec2i;
 
-#[derive(Debug)]
 pub enum AppCommand {
-    RESET
+    RESET,
+    LOAD_ROM(u8),
 }
 
 pub struct RuntimeData {
@@ -25,6 +26,8 @@ pub struct RuntimeData {
     clockspeed: f32,
     elapsed_time: f32,
     key_map: HashMap<KeyCode, u8>,
+    current_rom: u8,
+    roms: Vec<Chip8Rom>,
 }
 
 #[repr(C)]
@@ -40,35 +43,14 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
         "Chip 8 Emulator - Bitechular Innovations",
         Vec2i::new(1280, 640),
         |context| {
-            let rom = load_rom();
+            let roms = create_rom_list();
 
-            let mut device = Chip8::new();
-            device.set_rom(&rom);
+            let mut device = roms[0].to_device();
             let shader = create_shader(&context.gfx.device);
             let (render_pipeline, uniform_buffer, bind_group) = create_pipeline
                 (&context.gfx.device, &shader, context.gfx.texture_format);
 
-            let mut key_map: HashMap<KeyCode, u8> = HashMap::new();
-
-            key_map.insert(KeyCode::Digit1, 0x1);
-            key_map.insert(KeyCode::Digit2, 0x2);
-            key_map.insert(KeyCode::Digit3, 0x3);
-            key_map.insert(KeyCode::Digit4, 0xC);
-
-            key_map.insert(KeyCode::KeyQ, 0x4);
-            key_map.insert(KeyCode::KeyW, 0x5);
-            key_map.insert(KeyCode::KeyE, 0x6);
-            key_map.insert(KeyCode::KeyR, 0xD);
-
-            key_map.insert(KeyCode::KeyA, 0x7);
-            key_map.insert(KeyCode::KeyS, 0x8);
-            key_map.insert(KeyCode::KeyD, 0x9);
-            key_map.insert(KeyCode::KeyF, 0xE);
-
-            key_map.insert(KeyCode::KeyZ, 0xA);
-            key_map.insert(KeyCode::KeyX, 0x0);
-            key_map.insert(KeyCode::KeyC, 0xB);
-            key_map.insert(KeyCode::KeyV, 0xF);
+            let key_map = create_key_map();
 
             RuntimeData {
                 chip8: device,
@@ -78,6 +60,8 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
                 elapsed_time: 0.0,
                 clockspeed: 1000.0 / 700.0,
                 key_map,
+                current_rom: 0,
+                roms,
             }
         },
     );
@@ -90,10 +74,47 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
     return runtime;
 }
 
+fn create_key_map() -> HashMap<KeyCode, u8> {
+    let mut key_map: HashMap<KeyCode, u8> = HashMap::new();
+
+    key_map.insert(KeyCode::Digit1, 0x1);
+    key_map.insert(KeyCode::Digit2, 0x2);
+    key_map.insert(KeyCode::Digit3, 0x3);
+    key_map.insert(KeyCode::Digit4, 0xC);
+
+    key_map.insert(KeyCode::KeyQ, 0x4);
+    key_map.insert(KeyCode::KeyW, 0x5);
+    key_map.insert(KeyCode::KeyE, 0x6);
+    key_map.insert(KeyCode::KeyR, 0xD);
+
+    key_map.insert(KeyCode::KeyA, 0x7);
+    key_map.insert(KeyCode::KeyS, 0x8);
+    key_map.insert(KeyCode::KeyD, 0x9);
+    key_map.insert(KeyCode::KeyF, 0xE);
+
+    key_map.insert(KeyCode::KeyZ, 0xA);
+    key_map.insert(KeyCode::KeyX, 0x0);
+    key_map.insert(KeyCode::KeyC, 0xB);
+    key_map.insert(KeyCode::KeyV, 0xF);
+    key_map
+}
+
+fn create_rom_list() -> Vec<Chip8Rom> {
+    vec![
+        Chip8Rom::new("IBM Logo", include_bytes!("roms/tests/ibm.ch8").to_vec()),
+        Chip8Rom::new("Pong", include_bytes!("roms/games/pong.ch8").to_vec()),
+        Chip8Rom::new("Tetris", include_bytes!("roms/games/tetris.ch8").to_vec()),
+    ]
+}
+
 fn on_message(_app: &mut RuntimeContext, data: &mut RuntimeData, command: AppCommand) {
     match command {
         RESET => {
             log::warn!("Got reset message");
+            data.reset_device();
+        }
+        LOAD_ROM(id) => {
+            data.set_rom(id);
         }
     }
 }
@@ -133,7 +154,7 @@ fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture
             })],
             depth_stencil_attachment: None,
         });
-        //
+
         context.gfx.queue.write_buffer(&data.uniform_buffer, 0, bytemuck::cast_slice
             (&[ShaderUniform::from_display(data.chip8.display)]));
         rpass.set_bind_group(0, &data.bind_group, &[]);
@@ -223,6 +244,17 @@ fn create_shader(device: &Device) -> ShaderModule {
     })
 }
 
+impl RuntimeData {
+    pub fn reset_device(&mut self) {
+        self.chip8 = self.roms[self.current_rom as usize].to_device();
+    }
+
+    pub fn set_rom(&mut self, id: u8) {
+        self.current_rom = id;
+        self.reset_device();
+    }
+}
+
 impl ShaderUniform {
     pub(crate) fn new() -> Self {
         ShaderUniform {
@@ -246,3 +278,4 @@ impl ShaderUniform {
         return n;
     }
 }
+

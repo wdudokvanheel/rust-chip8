@@ -3,7 +3,7 @@ use std::sync::mpsc::Sender;
 use wasm_bindgen::prelude::*;
 
 use crate::application::{AppCommand, RuntimeData, start_application};
-use crate::application::AppCommand::RESET;
+use crate::application::AppCommand::{LOAD_ROM, RESET};
 use crate::wgpu_runtime::WgpuRuntime;
 
 mod utils;
@@ -25,6 +25,10 @@ pub struct CallBack {
 impl CallBack {
     pub fn reset(&mut self) {
         self.sender.send(RESET).unwrap();
+    }
+
+    pub fn load_rom(&mut self, id: u8) {
+        self.sender.send(LOAD_ROM(id)).unwrap();
     }
 }
 
