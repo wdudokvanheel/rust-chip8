@@ -98,7 +98,11 @@ fn create_key_map() -> HashMap<KeyCode, u8> {
 
 fn create_rom_list() -> Vec<Chip8Rom> {
     vec![
-        Chip8Rom::new("IBM Logo", include_bytes!("roms/tests/ibm.ch8").to_vec()),
+        Chip8Rom::new("Test: IBM Logo", include_bytes!("roms/tests/ibm.ch8").to_vec()),
+        Chip8Rom::new("Test: Corax Plus", include_bytes!("roms/tests/corax.plus.ch8").to_vec()),
+        Chip8Rom::new("Test: Quirks", include_bytes!("roms/tests/quirks.ch8").to_vec()),
+        Chip8Rom::new("Test: Keypad", include_bytes!("roms/tests/keypad.ch8").to_vec()),
+        Chip8Rom::new("Test: Flags", include_bytes!("roms/tests/flags.ch8").to_vec()),
         Chip8Rom::new("Pong", include_bytes!("roms/games/pong.ch8").to_vec()),
         Chip8Rom::new("Tetris", include_bytes!("roms/games/tetris.ch8").to_vec()),
     ]
