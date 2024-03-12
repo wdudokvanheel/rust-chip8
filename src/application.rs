@@ -6,7 +6,7 @@ use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
 
 use crate::application::AppCommand::{LOAD_ROM, RESET};
-use crate::chip8::{Chip8, Chip8Rom};
+use crate::chip8::{Chip8, Chip8Rom, QuirkConfig};
 use crate::wgpu_runtime::{RuntimeContext, Vertex, WgpuRuntime};
 use crate::wgpu_runtime::wgpu_math::Vec2i;
 
@@ -100,11 +100,30 @@ fn create_rom_list() -> Vec<Chip8Rom> {
     vec![
         Chip8Rom::new("Test: IBM Logo", include_bytes!("roms/tests/ibm.ch8").to_vec()),
         Chip8Rom::new("Test: Corax Plus", include_bytes!("roms/tests/corax.plus.ch8").to_vec()),
-        Chip8Rom::new("Test: Quirks", include_bytes!("roms/tests/quirks.ch8").to_vec()),
+        Chip8Rom::new_quirks("Test: Quirks", include_bytes!("roms/tests/quirks.ch8").to_vec(), QuirkConfig::create(true, true)),
+        Chip8Rom::new_quirks("Test: Flags", include_bytes!("roms/tests/flags.ch8").to_vec(), QuirkConfig::create(true, true)),
         Chip8Rom::new("Test: Keypad", include_bytes!("roms/tests/keypad.ch8").to_vec()),
-        Chip8Rom::new("Test: Flags", include_bytes!("roms/tests/flags.ch8").to_vec()),
+        Chip8Rom::new("15 Puzzle", include_bytes!("roms/games/15puzzle.ch8").to_vec()),
+        Chip8Rom::new_quirks("Blinky", include_bytes!("roms/games/blinky.ch8").to_vec(), QuirkConfig::create(true, false)),
+        Chip8Rom::new("Blitz", include_bytes!("roms/games/blitz.ch8").to_vec()),
+        Chip8Rom::new("Brix", include_bytes!("roms/games/brix.ch8").to_vec()),
+        Chip8Rom::new("Guess", include_bytes!("roms/games/guess.ch8").to_vec()),
+        Chip8Rom::new("Hidden", include_bytes!("roms/games/hidden.ch8").to_vec()),
+        Chip8Rom::new("Invaders", include_bytes!("roms/games/invaders.ch8").to_vec()),
+        Chip8Rom::new("Maze", include_bytes!("roms/games/maze.ch8").to_vec()),
+        Chip8Rom::new("Merlin", include_bytes!("roms/games/merlin.ch8").to_vec()),
+        Chip8Rom::new("Missile", include_bytes!("roms/games/missile.ch8").to_vec()),
         Chip8Rom::new("Pong", include_bytes!("roms/games/pong.ch8").to_vec()),
+        Chip8Rom::new("Pong2", include_bytes!("roms/games/pong2.ch8").to_vec()),
+        Chip8Rom::new("Puzzle", include_bytes!("roms/games/puzzle.ch8").to_vec()),
+        Chip8Rom::new("Syzygy", include_bytes!("roms/games/syzygy.ch8").to_vec()),
+        Chip8Rom::new("Tank", include_bytes!("roms/games/tank.ch8").to_vec()),
         Chip8Rom::new("Tetris", include_bytes!("roms/games/tetris.ch8").to_vec()),
+        Chip8Rom::new("Tictac", include_bytes!("roms/games/tictac.ch8").to_vec()),
+        Chip8Rom::new("UFO", include_bytes!("roms/games/ufo.ch8").to_vec()),
+        Chip8Rom::new("Vbrix", include_bytes!("roms/games/vbrix.ch8").to_vec()),
+        Chip8Rom::new("Vers", include_bytes!("roms/games/vers.ch8").to_vec()),
+        Chip8Rom::new("Wipeoff", include_bytes!("roms/games/wipeoff.ch8").to_vec()),
     ]
 }
 

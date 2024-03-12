@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+	<script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>
 	<style>
 		html, body {
 			margin: 0px;
@@ -12,10 +13,12 @@
 		}
 
 		canvas {
-			position: fixed;
 			display: block;
 			padding: 0px;
 			margin: 0px;
+			width: 1280px;
+			aspect-ratio: 2/1;
+			outline: none;
 		}
 	</style>
 
@@ -77,7 +80,7 @@
 			roms.forEach((rom, index) => {
 				const romButtonDiv = document.createElement('div');
 				const romButton = document.createElement('button');
-				romButton.className = 'loadrom';
+				romButton.className = 'loadrom bg-blue-500 hover:bg-blue-700 rounded p-2 w-full';
 				romButton.textContent = rom;
 				romButton.setAttribute('data-rom-id', index);
 				romButton.addEventListener("click", function (event) {
@@ -91,16 +94,20 @@
 	</script>
 </head>
 <body>
-	<div>
-		<button id="reset">
-			Reset device
-		</button>
-	</div>
+	<div class="flex flex-col space-y-2 p-2">
+		<div class="mx-auto">
+			<button id="reset" class="text-white bg-red-500 hover:bg-red-700 font-bold rounded px-4 py-2">
+				Reset device
+			</button>
+		</div>
 
-	<div class="rombuttons"></div>
+		<div class="w-full">
+			<canvas id="canvas" class="mx-auto"></canvas>
+		</div>
+		<h1 class="mx-auto text-white font-xl">Select ROM</h1>
+		<div class="rombuttons grid grid-cols-3 md:grid-cols-6 lg:grid-cols-8 xlg:grid-cols-10 gap-2">
 
-	<div>
-		<canvas id="canvas"></canvas>
+		</div>
 	</div>
 </body>
 <html>

@@ -29,7 +29,7 @@ struct Opcode {
 }
 
 #[derive(Copy, Clone)]
-struct QuirkConfig {
+pub struct QuirkConfig {
     memory_index_register_increase: bool,
     source_vy_bitshift: bool,
 }
@@ -46,6 +46,14 @@ impl Chip8Rom {
             name: name.to_string(),
             data,
             quirks: QuirkConfig::new(),
+        }
+    }
+
+    pub fn new_quirks(name: &str, data: Vec<u8>, quirks: QuirkConfig) -> Self {
+        Chip8Rom {
+            name: name.to_string(),
+            data,
+            quirks,
         }
     }
 
@@ -437,10 +445,17 @@ impl Opcode {
 }
 
 impl QuirkConfig {
-    fn new() -> Self {
+    pub fn new() -> Self {
         QuirkConfig {
-            memory_index_register_increase: false,
-            source_vy_bitshift: false,
+            memory_index_register_increase: true,
+            source_vy_bitshift: true,
+        }
+    }
+
+    pub fn create(memory: bool, bitshift: bool) -> Self {
+        QuirkConfig {
+            memory_index_register_increase: memory,
+            source_vy_bitshift: bitshift,
         }
     }
 }
