@@ -1,5 +1,7 @@
 struct DisplayUniform {
     values: array<vec4<u32>, 512>,
+    width: f32,
+    height: f32,
 };
 
 @group(0) @binding(0)
@@ -28,10 +30,12 @@ fn vs_main(
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-	let x = floor((in.clip_position.x / 1280.0) * 64.0);
-	let y = floor((in.clip_position.y / 640.0) * 32.0);
+	let posX = in.clip_position.x - 0.5;
+	let posY = in.clip_position.y - 0.5;
+	let x = ((posX / display.width ) * 64.0);
+	let y = ((posY / display.height) * 32.0);
 
-	var index : u32 = u32(((y * 64.0) + x));
+	var index : u32 = u32(((floor(y) * 64.0) + floor(x)));
 
 	let d = display.values[index / u32(4)];
 	let i = index % u32(4);

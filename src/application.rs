@@ -1,6 +1,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
+use bytemuck::cast_slice;
 use wgpu::{BindGroup, Buffer, Device, RenderPipeline, ShaderModule, Texture, TextureFormat};
 use wgpu::util::DeviceExt;
 use winit::keyboard::KeyCode;
@@ -31,6 +32,9 @@ pub struct RuntimeData {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub(crate) struct ShaderUniform {
     value: [u32; 2048],
+    width: f32,
+    height: f32,
+    padding: [u8; 8],
 }
 
 pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
@@ -38,7 +42,7 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
 
     let mut runtime = WgpuRuntime::<_, AppCommand>::new(
         "Chip 8 Emulator - Bitechular Innovations",
-        Vec2i::new(1280, 640),
+        Vec2i::new(640, 320),
         |context| {
             let roms = create_rom_list();
             let mut device = roms[0].to_device();
@@ -48,6 +52,11 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
                 (&context.gfx.device, &shader, context.gfx.texture_format);
 
             let key_map = create_key_map();
+
+            // context.gfx.surface_config.width = 320;
+            // context.gfx.surface_config.height = 160;
+            // context.gfx.surface.configure(&context.gfx.device, &context.gfx.surface_config);
+            // context.gfx.window.request_redraw();
 
             RuntimeData {
                 chip8: device,
@@ -174,8 +183,24 @@ fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture
             depth_stencil_attachment: None,
         });
 
-        context.gfx.queue.write_buffer(&data.uniform_buffer, 0, bytemuck::cast_slice
-            (&[ShaderUniform::from_display(data.chip8.display)]));
+        let mut disp = [[false; 64]; 32];
+        disp[0][0] = true;
+        // disp[0][1] = true;
+        // disp[0][2] = true;
+        // disp[0][3] = true;
+        disp[31][63] = true;
+        disp[31][62] = true;
+        disp[31][61] = true;
+        disp[31][60] = true;
+        disp[31][59] = true;
+
+        context.gfx.queue.write_buffer(
+            &data.uniform_buffer,
+            0,
+            cast_slice(&[ShaderUniform::from_display(data.chip8.display, context.gfx.surface_config.width, context.gfx.surface_config.height)]),
+            // cast_slice(&[ShaderUniform::from_display(disp, context.gfx.surface_config.width, context
+            //     .gfx.surface_config.height)]),
+        );
         rpass.set_bind_group(0, &data.bind_group, &[]);
         rpass.set_pipeline(&data.render_pipeline);
         rpass.set_vertex_buffer(0, context.gfx.vertex_buffer.slice(..));
@@ -192,7 +217,7 @@ fn create_pipeline(device: &Device, shader: &ShaderModule, format: TextureFormat
     let uniform_buffer = device.create_buffer_init(
         &wgpu::util::BufferInitDescriptor {
             label: Some("Display Buffer"),
-            contents: bytemuck::cast_slice(&[uniform]),
+            contents: cast_slice(&[uniform]),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
         }
     );
@@ -279,15 +304,22 @@ impl RuntimeData {
 }
 
 impl ShaderUniform {
-    pub(crate) fn new() -> Self {
+    pub fn new() -> Self {
         ShaderUniform {
-            value: [0; 2048]
+            width: 320.0,
+            height: 160.0,
+            value: [0; 2048],
+            padding: [0; 8],
         }
     }
 
-    pub(crate) fn from_display(display: [[bool; 64]; 32]) -> Self {
+    pub fn from_display(display: [[bool; 64]; 32], width: u32, height: u32) -> Self {
+        // log::warn!("Display for size: {}x{}", width, height);
         let mut n = ShaderUniform {
             value: [0; 2048],
+            width: width as f32,
+            height: height as f32,
+            padding: [0; 8],
         };
 
         for (row_index, row) in display.iter().enumerate() {

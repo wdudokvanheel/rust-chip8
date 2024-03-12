@@ -99,7 +99,10 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(size) => {
-                        log::trace!("Window resized to: {}x{}", size.width, size.height);
+                        log::warn!("Window resized to: {}x{}", size.width, size.height);
+                        if size.width >= 4294967295 || size.height >= 4294967295{
+                            return;
+                        }
                         context.gfx.surface_config.width = size.width;
                         context.gfx.surface_config.height = size.height;
                         context.gfx.surface.configure(&context.gfx.device, &context.gfx.surface_config);
