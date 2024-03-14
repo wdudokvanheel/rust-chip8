@@ -40,9 +40,13 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 	let d = display.values[index / u32(4)];
 	let i = index % u32(4);
 
+	var finalColor = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+
     if (d[i] > u32(0) ){
-        return vec4<f32>(0.598,0.38,0.833, 1.0);
+        finalColor = vec4<f32>(0.427, 0.176, 0.969, 1.0);
     }else{
-        return vec4<f32>(0.014,0.022,0.029, 1.0);
+        finalColor = vec4<f32>(0.00, 0.00, 0.00, 1.0);
     }
+
+    return vec4(pow(finalColor.rgb, vec3(2.2)), finalColor.a);;
 }

@@ -94,6 +94,8 @@ impl WgpuContext {
             }
         );
 
+        log::warn!("USING: {:?}", texture_format);
+
         let surface_config = SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
             format: texture_format,
