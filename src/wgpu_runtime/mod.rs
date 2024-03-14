@@ -19,7 +19,6 @@ pub mod wgpu_math;
 
 pub struct RuntimeContext {
     pub gfx: WgpuContext,
-    pub mouse_position: Vec2f,
 }
 
 pub struct WgpuRuntime<AppData, RuntimeCommand> {
@@ -38,8 +37,6 @@ pub struct RuntimeCallbackFunctions<AppData, RuntimeCommand> {
     pub render: fn(&mut RuntimeContext, &mut AppData, &Texture),
     pub resize: fn(&mut RuntimeContext, &mut AppData, Vec2i),
     pub key_input: fn(&mut RuntimeContext, &mut AppData, KeyCode, bool),
-    pub mouse_move: fn(&mut RuntimeContext, &mut AppData, Vec2f),
-    pub mouse_click: fn(&mut RuntimeContext, &mut AppData, Vec2i, MouseButton, bool),
     pub runtime_command: fn(&mut RuntimeContext, &mut AppData, RuntimeCommand),
 }
 
@@ -58,7 +55,6 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
         let mut runtime = WgpuRuntime {
             context: RuntimeContext {
                 gfx,
-                mouse_position: Vec2f::zero(),
             },
             data: None,
             event_loop,
@@ -99,7 +95,6 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
                         *control_flow = ControlFlow::Exit;
                     }
                     WindowEvent::Resized(size) => {
-                        log::warn!("Window resized to: {}x{}", size.width, size.height);
                         if size.width >= 4294967295 || size.height >= 4294967295{
                             return;
                         }
@@ -124,19 +119,6 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
                             event.physical_key,
                             event.state == Pressed,
                         );
-                    }
-                    WindowEvent::CursorMoved { position, .. } => {
-                        context.mouse_position = Vec2f::new(position.x as f32, position.y as f32);
-                        let position = context.mouse_position.clone();
-                        (callback.mouse_move)(context, data, position);
-                    }
-                    WindowEvent::MouseInput {
-                        button,
-                        state,
-                        ..
-                    }
-                    => {
-                        (callback.mouse_click)(context, data, context.mouse_position.round_2i(), button, state == Pressed)
                     }
                     _ => {}
                 }
@@ -183,25 +165,10 @@ impl<AppData: 'static, RuntimeCommand: 'static> WgpuRuntime<AppData, RuntimeComm
         self.callback.update = callback;
     }
 
-    pub fn on_mouse_move(&mut self, callback: fn(&mut RuntimeContext, &mut AppData, Vec2f)) {
-        self.callback.mouse_move = callback;
-    }
-
     pub fn on_runtime_command(&mut self,
                               callback: fn(&mut RuntimeContext, &mut AppData, RuntimeCommand),
     ) {
         self.callback.runtime_command = callback;
-    }
-
-    pub fn on_mouse_click(
-        &mut self,
-        callback: fn(
-            &mut RuntimeContext,
-            &mut AppData,
-            Vec2i,
-            MouseButton,
-            bool)) {
-        self.callback.mouse_click = callback;
     }
 
     fn init_logger() {
@@ -229,8 +196,6 @@ impl<AppData, RuntimeCommand> RuntimeCallbackFunctions<AppData, RuntimeCommand> 
             render: |_, _, _| {},
             resize: |_, _, _| {},
             key_input: |_, _, _, _| {},
-            mouse_move: |_, _, _| {},
-            mouse_click: |_, _, _, _, _| {},
             runtime_command: |_, _, _| {},
         }
     }

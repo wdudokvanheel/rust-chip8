@@ -163,7 +163,6 @@ impl Chip8 {
     }
 
     fn add_index_register(&mut self, target_register: u8) {
-        // TODO: Add amiga style VF register handling
         self.index_register = self.index_register.wrapping_add(self.registers[target_register as usize].into());
     }
 
@@ -376,7 +375,6 @@ impl Chip8 {
     }
 
     fn set_program_counter(&mut self, value: u16) {
-        // println!("Setting program counter to: {:04X}", value);
         self.program_counter = value;
     }
 
@@ -390,7 +388,6 @@ impl Chip8 {
     }
 
     fn add_v_register(&mut self, register: u8, value: u8) {
-        //println!("Adding value to register v{:01X}: {:02X}", register, value);
         if register > 0xF {
             println!("Invalid V register: {:01X}", register);
             return;

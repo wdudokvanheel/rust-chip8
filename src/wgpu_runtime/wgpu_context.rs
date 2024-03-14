@@ -5,8 +5,8 @@ use wgpu::util::DeviceExt;
 use winit::dpi::PhysicalSize;
 use winit::event_loop::EventLoop;
 use winit::window::{Window, WindowBuilder};
-use crate::wgpu_runtime::Vertex;
 
+use crate::wgpu_runtime::Vertex;
 use crate::wgpu_runtime::wgpu_math::Vec2i;
 
 pub struct WgpuContext {
@@ -93,8 +93,6 @@ impl WgpuContext {
                 usage: wgpu::BufferUsages::INDEX,
             }
         );
-
-        log::warn!("USING: {:?}", texture_format);
 
         let surface_config = SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,

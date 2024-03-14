@@ -12,12 +12,6 @@
 		let callback = undefined;
 		let roms = [];
 
-		function reset() {
-			if(callback != undefined) {
-				callback.reset();
-			}
-		}
-
 		function load_rom(id) {
 			if(callback != undefined) {
 				callback.load_rom(id);
@@ -42,9 +36,6 @@
 		});
 
 		document.addEventListener("DOMContentLoaded", function () {
-			const resetButton = document.getElementById("reset");
-			resetButton.addEventListener("click", reset);
-
 			const romButtons = document.getElementsByClassName("loadrom");
 			for (const button of romButtons) {
 				button.addEventListener("click", function (event) {

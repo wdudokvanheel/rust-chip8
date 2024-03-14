@@ -315,7 +315,6 @@ impl ShaderUniform {
     }
 
     pub fn from_display(display: [[bool; 64]; 32], width: u32, height: u32) -> Self {
-        // log::warn!("Display for size: {}x{}", width, height);
         let mut n = ShaderUniform {
             value: [0; 2048],
             width: width as f32,
