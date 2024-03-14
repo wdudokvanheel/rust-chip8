@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <head>
 	<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<!--	<script src="https://cdn.tailwindcss.com?plugins=forms,typography,aspect-ratio,line-clamp"></script>-->
 	<link href="./style.css" rel="stylesheet">
 
 	<script type="module">
@@ -67,6 +66,7 @@
 				romButton.setAttribute('data-rom-id', index);
 				romButton.addEventListener("click", function (event) {
 					const romId = event.currentTarget.getAttribute('data-rom-id');
+					canvas.focus();
 					load_rom(Number(romId));
 				});
 				romButtonDiv.appendChild(romButton);
@@ -78,7 +78,7 @@
 <body class="bg-dark">
 	<div class="flex flex-col space-y-2 p-3 h-full w-full m-auto">
 		<div class="aspect-[2/1] max-h-[80%]">
-			<canvas id="canvas" class="mx-auto h-full aspect-[2/1]"></canvas>
+			<canvas id="canvas" class="mx-auto h-full aspect-[2/1]" tabindex="0"></canvas>
 		</div>
 
 		<h1 class="mx-auto text-light font-xl">Load a ROM</h1>
