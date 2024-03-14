@@ -18,6 +18,7 @@ pub enum AppCommand {
 
 pub struct RuntimeData {
     chip8: Chip8,
+    buffer: [[bool; 64]; 32],
     render_pipeline: RenderPipeline,
     uniform_buffer: Buffer,
     bind_group: BindGroup,
@@ -63,6 +64,7 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
                 key_map,
                 current_rom: 0,
                 roms,
+                buffer: [[false; 64]; 32],
             }
         },
     );
@@ -179,23 +181,13 @@ fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture
             depth_stencil_attachment: None,
         });
 
-        let mut disp = [[false; 64]; 32];
-        disp[0][0] = true;
-        // disp[0][1] = true;
-        // disp[0][2] = true;
-        // disp[0][3] = true;
-        disp[31][63] = true;
-        disp[31][62] = true;
-        disp[31][61] = true;
-        disp[31][60] = true;
-        disp[31][59] = true;
+        let display = combine_buffers(&data.buffer, &data.chip8.display);
+        data.buffer = data.chip8.display;
 
         context.gfx.queue.write_buffer(
             &data.uniform_buffer,
             0,
-            cast_slice(&[ShaderUniform::from_display(data.chip8.display, context.gfx.surface_config.width, context.gfx.surface_config.height)]),
-            // cast_slice(&[ShaderUniform::from_display(disp, context.gfx.surface_config.width, context
-            //     .gfx.surface_config.height)]),
+            cast_slice(&[ShaderUniform::from_display(display, context.gfx.surface_config.width, context.gfx.surface_config.height)]),
         );
         rpass.set_bind_group(0, &data.bind_group, &[]);
         rpass.set_pipeline(&data.render_pipeline);
@@ -205,6 +197,19 @@ fn render(context: &mut RuntimeContext, data: &mut RuntimeData, target: &Texture
     }
     context.gfx.queue.submit(Some(encoder.finish()));
 }
+
+fn combine_buffers(data_buffer: &[[bool; 64]; 32], self_buffer: &[[bool; 64]; 32]) -> [[bool; 64]; 32] {
+    let mut new_buffer = [[false; 64]; 32];
+
+    for (i, (data_row, self_row)) in data_buffer.iter().zip(self_buffer.iter()).enumerate() {
+        for (j, (data_val, self_val)) in data_row.iter().zip(self_row.iter()).enumerate() {
+            new_buffer[i][j] = *data_val || *self_val;
+        }
+    }
+
+    new_buffer
+}
+
 
 fn create_pipeline(device: &Device, shader: &ShaderModule, format: TextureFormat) ->
 (RenderPipeline, Buffer, BindGroup) {
