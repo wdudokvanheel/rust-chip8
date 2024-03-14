@@ -242,18 +242,21 @@ impl Chip8 {
     }
 
     fn register_or(&mut self, target_register: u8, source_register: u8) {
+        let value = self.registers[source_register as usize];
         self.registers[0xF] = 0;
-        self.registers[target_register as usize] = self.registers[target_register as usize] | self.registers[source_register as usize];
+        self.registers[target_register as usize] = self.registers[target_register as usize] | value;
     }
 
     fn register_xor(&mut self, target_register: u8, source_register: u8) {
+        let value = self.registers[source_register as usize];
         self.registers[0xF] = 0;
-        self.registers[target_register as usize] = self.registers[target_register as usize] ^ self.registers[source_register as usize];
+        self.registers[target_register as usize] = self.registers[target_register as usize] ^ value;
     }
 
     fn register_and(&mut self, target_register: u8, source_register: u8) {
+        let value = self.registers[source_register as usize];
         self.registers[0xF] = 0;
-        self.registers[target_register as usize] = self.registers[target_register as usize] & self.registers[source_register as usize];
+        self.registers[target_register as usize] = self.registers[target_register as usize] & value;
     }
 
     fn register_shift(&mut self, target_register: u8, source_register: u8, inverse: bool) {

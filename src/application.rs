@@ -53,11 +53,6 @@ pub fn start_application() -> WgpuRuntime<RuntimeData, AppCommand> {
 
             let key_map = create_key_map();
 
-            // context.gfx.surface_config.width = 320;
-            // context.gfx.surface_config.height = 160;
-            // context.gfx.surface.configure(&context.gfx.device, &context.gfx.surface_config);
-            // context.gfx.window.request_redraw();
-
             RuntimeData {
                 chip8: device,
                 render_pipeline,
@@ -110,7 +105,8 @@ fn create_rom_list() -> Vec<Chip8Rom> {
         Chip8Rom::new("Test: IBM Logo", include_bytes!("roms/tests/ibm.ch8").to_vec()),
         Chip8Rom::new("Test: Corax Plus", include_bytes!("roms/tests/corax.plus.ch8").to_vec()),
         Chip8Rom::new_quirks("Test: Quirks", include_bytes!("roms/tests/quirks.ch8").to_vec(), QuirkConfig::create(true, true)),
-        Chip8Rom::new_quirks("Test: Flags", include_bytes!("roms/tests/flags.ch8").to_vec(), QuirkConfig::create(true, true)),
+        Chip8Rom::new_quirks("Test: Flags", include_bytes!("roms/tests/flags.ch8").to_vec(),
+                             QuirkConfig::create(false, false)),
         Chip8Rom::new("Test: Keypad", include_bytes!("roms/tests/keypad.ch8").to_vec()),
         Chip8Rom::new("15 Puzzle", include_bytes!("roms/games/15puzzle.ch8").to_vec()),
         Chip8Rom::new_quirks("Blinky", include_bytes!("roms/games/blinky.ch8").to_vec(), QuirkConfig::create(true, false)),
